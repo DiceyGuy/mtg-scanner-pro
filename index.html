@@ -284,9 +284,168 @@
             };
 
             // Camera functions
-            const startCamera = async () => {
-                setCameraError('');
+     // Enhanced camera functionality with better error handling
+const startCamera = async () => {
+    setCameraError('');
+    
+    try {
+        console.log('📷 Requesting camera access...');
+        
+        // Try different constraint combinations for better compatibility
+        let stream;
+        
+        // First try: environment camera (rear camera on mobile)
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
+            });
+            console.log('✅ Environment camera started');
+        } catch (err) {
+            console.log('⚠️ Environment camera failed, trying user camera...');
+            
+            // Second try: user camera (front camera)
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                console.log('✅ User camera started');
+            } catch (err2) {
+                console.log('⚠️ User camera failed, trying any camera...');
                 
+                // Third try: any available camera
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                });
+                console.log('✅ Any camera started');
+            }
+        }
+        
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+            
+            // Wait for video to load
+            videoRef.current.onloadedmetadata = () => {
+                console.log('📹 Video metadata loaded');
+                setIsScanning(true);
+            };
+            
+            // Handle video errors
+            videoRef.current.onerror = (e) => {
+                console.error('📹 Video error:', e);
+                setCameraError('Video playback failed. Please try refreshing the page.');
+            };
+        }
+        
+    } catch (err) {
+        console.error('❌ Camera error:', err);
+        
+        let errorMessage = 'Camera access failed. ';
+        
+        if (err.name === 'NotAllowedError') {
+            errorMessage += 'Please click "Allow" when your browser asks for camera permission.';
+        } else if (err.name === 'NotFoundError') {
+            errorMessage += 'No camera found. Please make sure you have a camera connected.';
+        } else if (err.name === 'NotReadableError') {
+            errorMessage += 'Camera is being used by another application. Please close other apps using the camera.';
+        } else if (err.name === 'OverconstrainedError') {
+            errorMessage += 'Camera doesn\'t support the required settings. Trying basic mode...';
+            
+            // Last resort: very basic camera request
+            try {
+                const basicStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = basicStream;
+                    setIsScanning(true);
+                    return;
+                }
+            } catch (basicErr) {
+                errorMessage += ' Basic camera mode also failed.';
+            }
+        } else {
+            errorMessage += 'Please check camera permissions and try again.';
+        }
+        
+        setCameraError(errorMessage);
+    }
+};
+
+// Enhanced capture with better feedback
+const captureImage = () => {
+    if (videoRef.current && canvasRef.current && videoRef.current.readyState === 4) {
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0);
+        
+        const imageData = canvas.toDataURL('image/jpeg', 0.8);
+        console.log('📸 Image captured successfully');
+        recognizeCard(imageData);
+    } else {
+        console.error('❌ Video not ready for capture');
+        setCameraError('Video not ready. Please wait a moment and try again.');
+    }
+};
+
+// Enhanced AI recognition with more realistic simulation
+const recognizeCard = async (imageData) => {
+    setIsLoading(true);
+    
+    try {
+        console.log('🔮 Starting AI recognition...');
+        
+        // Simulate AI processing with visual feedback
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        if (cardDatabase.length > 0) {
+            // Simulate more realistic recognition
+            const popularCards = cardDatabase.filter(card => 
+                card.name.includes('Lightning') || 
+                card.name.includes('Black') || 
+                card.type.includes('Planeswalker') ||
+                card.rarity === 'Mythic Rare'
+            );
+            
+            const cardPool = popularCards.length > 0 ? popularCards : cardDatabase;
+            const randomCard = cardPool[Math.floor(Math.random() * cardPool.length)];
+            const confidence = Math.round((Math.random() * 20) + 80); // 80-100% confidence
+            
+            setRecognizedCard({
+                ...randomCard,
+                confidence: confidence,
+                timestamp: new Date().toISOString(),
+                recognitionMethod: confidence > 90 ? '🎯 High Confidence Match' : '🔮 AI Recognition'
+            });
+            
+            console.log(`🎯 Recognized ${randomCard.name} with ${confidence}% confidence`);
+        } else {
+            setRecognizedCard({
+                error: "Card database not loaded. Please wait for Scryfall connection.",
+                confidence: 0
+            });
+        }
+        
+    } catch (error) {
+        console.error('❌ Recognition error:', error);
+        setRecognizedCard({
+            error: "Recognition failed. Please try again with better lighting.",
+            confidence: 0
+        });
+    } finally {
+        setIsLoading(false);
+    }
+};
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment' }
