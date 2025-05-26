@@ -1,8 +1,5 @@
 const { useState, useRef, useEffect } = React;
-const { 
-  Camera, Search, Star, DollarSign, Eye, BookOpen, Zap, Shield, Heart, 
-  Swords, X, Upload, Scan, Loader, Wifi, WifiOff 
-} = lucideReact;
+const { Camera, Search, Star, DollarSign, Eye, BookOpen, Zap, Shield, Heart, Swords, X, Upload, Scan, Loader, Wifi, WifiOff } = lucide;
 
 const MTGCardScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
