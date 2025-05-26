@@ -648,3 +648,7 @@
                                                     className="w-full h-80 object-cover"
                                                     style={{ display: isScanning ? 'block' : 'none' }}
                                                 />
+// Multiple camera fallbacks for mobile
+facingMode: 'environment'  // Rear camera (best for scanning)
+facingMode: 'user'         // Front camera fallback
+playsInline: true          // Essential for iOS Safari
