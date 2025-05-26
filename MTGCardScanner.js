@@ -794,3 +794,10 @@ ReactDOM.render(React.createElement(MTGCardScanner), document.getElementById('ro
     // Enhanced Header with floating effect
     React.createElement('div', { className: "bg-black/30 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50" },
       React.createElement('div', { className:
+React.createElement(Camera, { className: "w-8 h-8" })
+    )
+  );
+};
+
+// Render the component
+ReactDOM.render(React.createElement(MTGCardScanner), document.getElementById('root'));
