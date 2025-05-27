@@ -1,719 +1,52 @@
-// Initialize on mount
-            useEffect(() => {
-                console.log('🚀 MTG Scanner Pro initializing...');
-                loadCardsFromScryfall();
-                
-                // Initialize cameras with delay for better detection
-                setTimeout(() => {
-                    getAvailableCameras();
-                }, 1000);
-            }, []);
-
-            // Search with debouncing
-            useEffect(() => {
-                const timeoutId = setTimeout(() => {
-                    if (searchQuery.trim()) {
-                        searchCards(searchQuery);
-                    } else {
-                        setSearchResults([]);
-                    }
-                }, 500);
-
-                return () => clearTimeout(timeoutId);
-            }, [searchQuery, cardDatabase]);
-
-            // Utility functions
-            const getRarityColor = (rarity) => {
-                switch (rarity?.toLowerCase()) {
-                    case 'common': return 'text-gray-400';
-                    case 'uncommon': return 'text-blue-400';
-                    case 'rare': return 'text-yellow-400';
-                    case 'mythic rare': 
-                    case 'mythic': return 'text-red-400';
-                    default: return 'text-gray-400';
-                }
-            };
-
-            const formatPrice = (price) => {
-                if (price >= 1000) return `${(price / 1000).toFixed(1)}k`;
-                if (price >= 100) return `${price.toFixed(0)}`;
-                if (price >= 1) return `${price.toFixed(2)}`;
-                return `${price.toFixed(2)}`;
-            };
-
-            // API Status Component
-            const ApiStatusIndicator = () => (
-                <div className="flex items-center gap-2 text-sm">
-                    {apiStatus === 'connected' && (
-                        <>
-                            <Wifi className="icon text-green-400" />
-                            <span className="text-green-400">Scryfall Connected</span>
-                        </>
-                    )}
-                    {apiStatus === 'connecting' && (
-                        <>
-                            <Loader className="icon text-yellow-400 animate-spin" />
-                            <span className="text-yellow-400">Connecting...</span>
-                        </>
-                    )}
-                    {apiStatus === 'error' && (
-                        <>
-                            <WifiOff className="icon text-red-400" />
-                            <span className="text-red-400">Offline Mode</span>
-                        </>
-                    )}
-                </div>
-            );
-
-            // Calculated values
-            const collectionValue = collection.reduce((sum, card) => sum + (card.price * card.quantity), 0);
-            const totalCards = collection.reduce((sum, card) => sum + card.quantity, 0);
-
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-                    {/* Enhanced Header */}
-                    <div className="bg-black/30 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
-                        <div className="max-w-6xl mx-auto px-4 py-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center animate-pulse shadow-lg">
-                                        <Eye className="icon-lg text-white" />
-                                    </div>
-                                    <div>
-                                        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                                            MTG Scanner Pro
-                                        </h1>
-                                        <div className="flex items-center gap-3">
-                                            <p className="text-sm text-gray-400">🔮 Bulletproof AI Recognition</p>
-                                            <ApiStatusIndicator />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm text-gray-400">Collection</div>
-                                    <div className="text-2xl font-bold text-blue-400">{totalCards} cards</div>
-                                    <div className="text-lg font-bold text-green-400">{formatPrice(collectionValue)}</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Enhanced Navigation */}
-                    <div className="max-w-6xl mx-auto px-4 py-6">
-                        <div className="flex gap-2 bg-black/20 rounded-2xl p-2 backdrop-blur-sm border border-white/10 shadow-xl">
-                            {[
-                                { id: 'scanner', label: 'Scanner', icon: Camera },
-                                { id: 'search', label: 'Search', icon: Search },
-                                { id: 'collection', label: 'Collection', icon: BookOpen }
-                            ].map(tab => {
-                                const Icon = tab.icon;
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex-1 py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${
-                                            activeTab === tab.id 
-                                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl transform scale-105' 
-                                                : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                        }`}
-                                    >
-                                        <Icon className="icon" />
-                                        <span className={isMobile ? 'text-sm' : ''}>{tab.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="max-w-6xl mx-auto px-4 pb-8">
-                        {/* Enhanced Scanner Tab */}
-                        {activeTab === 'scanner' && (
-                            <div className="space-y-6">
-                                <div className="bg-black/20 rounded-2xl p-8 border border-white/10 backdrop-blur-sm shadow-2xl">
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                                        <Camera className="icon-lg text-blue-400" />
-                                        🔮 Bulletproof AI Recognition
-                                    </h2>
-                                    
-                                    <div className={`grid ${isMobile ? 'grid-cols-1 gap-6' : 'lg:grid-cols-2 gap-8'}`}>
-                                        <div className="space-y-6">
-                                            {/* Enhanced Camera Selector */}
-                                            {availableCameras.length > 1 && (
-                                                <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-600">
-                                                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                                                        📷 Select Camera:
-                                                    </label>
-                                                    <select
-                                                        value={selectedCamera}
-                                                        onChange={(e) => setSelectedCamera(e.target.value)}
-                                                        className="w-full px-4 py-3 bg-gray-700 border border-gray-500 rounded-lg text-white focus:border-blue-500 focus:outline-none transition-colors"
-                                                    >
-                                                        {availableCameras.map((camera) => (
-                                                            <option key={camera.deviceId} value={camera.deviceId}>
-                                                                {camera.label}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            )}
-
-                                            {/* Enhanced Error Display */}
-                                            {cameraError && (
-                                                <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-4 backdrop-blur-sm">
-                                                    <p className="text-red-300 text-sm mb-3">{cameraError}</p>
-                                                    <button
-                                                        onClick={() => {
-                                                            setCameraError('');
-                                                            getAvailableCameras();
-                                                        }}
-                                                        className="text-blue-400 hover:text-blue-300 text-sm underline"
-                                                    >
-                                                        🔄 Refresh cameras
-                                                    </button>
-                                                </div>
-                                            )}
-                                            
-                                            {/* Enhanced Video Display */}
-                                            <div className="bg-black rounded-2xl overflow-hidden border-2 border-purple-500/50 shadow-2xl relative">
-                                                <video 
-                                                    ref={videoRef} 
-                                                    autoPlay 
-                                                    playsInline 
-                                                    muted
-                                                    className={`w-full object-cover ${isMobile ? 'h-64' : 'h-80'}`}
-                                                    style={{ display: isScanning ? 'block' : 'none' }}
-                                                />
-                                                {!isScanning && (
-                                                    <div className={`w-full ${isMobile ? 'h-64' : 'h-80'} bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center`}>
-                                                        <div className="text-center">
-                                                            <Camera className="icon-xl text-purple-400 mx-auto mb-4 animate-bounce" />
-                                                            <p className="text-purple-400 text-lg font-bold">Camera Ready</p>
-                                                            {availableCameras.length > 0 && (
-                                                                <p className="text-xs text-gray-500 mt-2">
-                                                                    📷 {availableCameras.length} camera(s) detected
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                                
-                                                {/* Mobile scan overlay */}
-                                                {isScanning && isMobile && (
-                                                    <div className="absolute inset-0 pointer-events-none">
-                                                        <div className="absolute inset-4 border-2 border-blue-400 rounded-lg"></div>
-                                                        <div className="absolute top-2 left-2 text-blue-400 text-xs bg-black/50 px-2 py-1 rounded">
-                                                            Position card in frame
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            
-                                            {/* Enhanced Control Buttons */}
-                                            <div className="space-y-3">
-                                                <div className="flex gap-3">
-                                                    {!isScanning ? (
-                                                        <>
-                                                            <button 
-                                                                onClick={startCamera}
-                                                                disabled={availableCameras.length === 0}
-                                                                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-                                                            >
-                                                                <Camera className="icon" />
-                                                                {availableCameras.length === 0 ? 'No Cameras Found' : '🚀 Start Camera'}
-                                                            </button>
-                                                            {availableCameras.length === 0 && (
-                                                                <button 
-                                                                    onClick={getAvailableCameras}
-                                                                    className="px-6 py-4 bg-gray-600 hover:bg-gray-700 text-white rounded-xl transition-colors"
-                                                                    title="Refresh camera list"
-                                                                >
-                                                                    🔄
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <button 
-                                                                onClick={captureImage}
-                                                                disabled={isLoading}
-                                                                className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-                                                            >
-                                                                {isLoading ? <Loader className="icon animate-spin" /> : <Zap className="icon" />}
-                                                                {isLoading ? '🔮 Analyzing...' : '⚡ Scan Card'}
-                                                            </button>
-                                                            <button 
-                                                                onClick={stopCamera}
-                                                                className="px-6 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors shadow-lg"
-                                                            >
-                                                                <X className="icon" />
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                
-                                                {/* File Upload */}
-                                                <div>
-                                                    <input
-                                                        ref={fileInputRef}
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={handleFileUpload}
-                                                        className="hidden"
-                                                    />
-                                                    <button 
-                                                        onClick={() => fileInputRef.current?.click()}
-                                                        disabled={isLoading}
-                                                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-lg hover:shadow-xl"
-                                                    >
-                                                        <Upload className="icon" />
-                                                        📁 Upload Image
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Enhanced Recognition Results */}
-                                        <div>
-                                            {recognizedCard && !recognizedCard.error ? (
-                                                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-700 shadow-2xl transform hover:scale-[1.02] transition-all duration-300">
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div className="flex-1">
-                                                            <h3 className="text-2xl font-bold text-white mb-2">{recognizedCard.name}</h3>
-                                                            <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                                <span className="text-lg font-mono text-blue-400">{recognizedCard.manaCost}</span>
-                                                                <span className={`font-semibold ${getRarityColor(recognizedCard.rarity)}`}>{recognizedCard.rarity}</span>
-                                                                {recognizedCard.setName && (
-                                                                    <span className="text-gray-500 text-sm">{recognizedCard.setName}</span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-gray-400 text-sm mb-3">{recognizedCard.type}</p>
-                                                            {recognizedCard.artist && (
-                                                                <p className="text-gray-500 text-xs mb-3">Art by {recognizedCard.artist}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right ml-4">
-                                                            <div className="text-2xl font-bold text-green-400 mb-1">{formatPrice(recognizedCard.price)}</div>
-                                                            {recognizedCard.confidence && (
-                                                                <div className="text-xs text-purple-400 mb-1 animate-pulse">
-                                                                    {recognizedCard.confidence}% confidence
-                                                                </div>
-                                                            )}
-                                                            {recognizedCard.cmc !== undefined && (
-                                                                <div className="text-xs text-blue-400">CMC: {recognizedCard.cmc}</div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                                                        <p className="text-gray-300 text-sm leading-relaxed">{recognizedCard.text}</p>
-                                                    </div>
-                                                    
-                                                    {recognizedCard.power && recognizedCard.toughness && (
-                                                        <div className="flex items-center gap-2 mb-4">
-                                                            <span className="text-red-400">⚔️</span>
-                                                            <span className="text-white font-bold">{recognizedCard.power}/{recognizedCard.toughness}</span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    <button 
-                                                        onClick={() => addToCollection(recognizedCard)}
-                                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
-                                                    >
-                                                        <Star className="icon" />
-                                                        Add to Collection
-                                                    </button>
-                                                </div>
-                                            ) : recognizedCard?.error ? (
-                                                <div className="bg-red-900/20 border border-red-500/30 rounded-2xl p-8 text-center backdrop-blur-sm">
-                                                    <X className="icon-xl text-red-400 mx-auto mb-4" />
-                                                    <p className="text-red-300 mb-3 text-lg">{recognizedCard.error}</p>
-                                                    {apiStatus === 'error' && (
-                                                        <p className="text-yellow-400 text-sm">📡 Note: Using offline card database</p>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <div className="bg-gradient-to-br from-gray-800/50 to-purple-900/20 rounded-2xl p-10 text-center border-2 border-dashed border-gray-600 backdrop-blur-sm">
-                                                    <Eye className="icon-xl text-purple-400 mx-auto mb-6 animate-pulse" />
-                                                    <p className="text-purple-400 text-xl font-bold mb-2">🔮 AI Ready for Recognition</p>
-                                                    <p className="text-sm text-gray-400 mb-4">Scan or upload a Magic card to get started</p>
-                                                    <div className="flex items-center justify-center gap-2 text-xs">
-                                                        {apiStatus === 'connected' ? (
-                                                            <span className="text-green-400">✅ Connected to Scryfall database</span>
-                                                        ) : (
-                                                            <span className="text-yellow-400">🔄 Using offline card data</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                                <canvas ref={canvasRef} className="hidden" />
-                            </div>
-                        )}
-
-                        {/* Enhanced Search Tab */}
-                        {activeTab === 'search' && (
-                            <div className="space-y-6">
-                                <div className="bg-black/20 rounded-2xl p-8 border border-white/10 backdrop-blur-sm shadow-2xl">
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3 flex-wrap">
-                                        <Search className="icon-lg text-blue-400" />
-                                        🔍 Card Database
-                                        {cardDatabase.length > 0 && (
-                                            <span className="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full">
-                                                {cardDatabase.length.toLocaleString()} cards loaded
-                                            </span>
-                                        )}
-                                    </h2>
-                                    
-                                    <div className="relative mb-8">
-                                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 icon text-gray-400" />
-                                        <input
-                                            type="text"
-                                            placeholder="🔮 Search cards by name, type, or text... (e.g. 'Lightning Bolt', 'Planeswalker')"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full pl-12 pr-6 py-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none backdrop-blur-sm text-lg transition-all duration-300"
-                                        />
-                                    </div>
-                                    
-                                    <div className="grid gap-6">
-                                        {isLoadingDatabase ? (
-                                            <div className="text-center py-16">
-                                                <Loader className="icon-xl text-blue-400 mx-auto mb-6 animate-spin" />
-                                                <p className="text-blue-400 text-2xl font-bold mb-2">🔮 Loading MTG Database...</p>
-                                                <p className="text-sm text-gray-400">Connecting to Scryfall API</p>
-                                            </div>
-                                        ) : searchQuery === '' ? (
-                                            <div className="text-center py-16">
-                                                <Search className="icon-xl text-purple-400 mx-auto mb-6 animate-bounce" />
-                                                <p className="text-purple-400 text-2xl font-bold mb-2">
-                                                    🔍 Search {cardDatabase.length.toLocaleString()}+ MTG Cards
-                                                </p>
-                                                <p className="text-lg text-gray-400 mb-4">
-                                                    Try searching for "Lightning Bolt", "Planeswalker", or "Blue instant"
-                                                </p>
-                                                <div className="flex justify-center">
-                                                    <ApiStatusIndicator />
-                                                </div>
-                                            </div>
-                                        ) : isLoading ? (
-                                            <div className="text-center py-16">
-                                                <Loader className="icon-xl text-blue-400 mx-auto mb-6 animate-spin" />
-                                                <p className="text-blue-400 text-2xl font-bold">🔍 Searching Cards...</p>
-                                            </div>
-                                        ) : searchResults.length > 0 ? (
-                                            <div className="grid gap-6">
-                                                {searchResults.map(card => (
-                                                    <div key={card.id} className="transform hover:scale-[1.02] transition-transform duration-300">
-                                                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 border border-gray-700 shadow-2xl">
-                                                            <div className="flex justify-between items-start mb-4">
-                                                                <div className="flex-1">
-                                                                    <h3 className="text-2xl font-bold text-white mb-2">{card.name}</h3>
-                                                                    <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                                                        <span className="text-lg font-mono text-blue-400">{card.manaCost}</span>
-                                                                        <span className={`font-semibold ${getRarityColor(card.rarity)}`}>{card.rarity}</span>
-                                                                        {card.setName && (
-                                                                            <span className="text-gray-500 text-sm">{card.setName}</span>
-                                                                        )}
-                                                                    </div>
-                                                                    <p className="text-gray-400 text-sm mb-3">{card.type}</p>
-                                                                    {card.artist && (
-                                                                        <p className="text-gray-500 text-xs mb-3">Art by {card.artist}</p>
-                                                                    )}
-                                                                </div>
-                                                                <div className="text-right ml-4">
-                                                                    <div className="text-2xl font-bold text-green-400 mb-1">{formatPrice(card.price)}</div>
-                                                                    {card.cmc !== undefined && (
-                                                                        <div className="text-xs text-blue-400">CMC: {card.cmc}</div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="bg-gray-800 rounded-lg p-4 mb-4">
-                                                                <p className="text-gray-300 text-sm leading-relaxed">{card.text}</p>
-                                                            </div>
-                                                            <button 
-                                                                onClick={() => addToCollection(card)}
-                                                                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl"
-                                                            >
-                                                                <Star className="icon" />
-                                                                Add to Collection
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-16">
-                                                <Search className="icon-xl text-gray-500 mx-auto mb-6" />
-                                                <p className="text-gray-400 text-2xl font-bold mb-2">No cards found for "{searchQuery}"</p>
-                                                <p className="text-lg text-gray-500">Try different search terms or check spelling</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Enhanced Collection Tab */}
-                        {activeTab === 'collection' && (
-                            <div className="space-y-6">
-                                <div className="bg-black/20 rounded-2xl p-8 border border-white/10 backdrop-blur-sm shadow-2xl">
-                                    <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-                                        <h2 className="text-2xl font-bold flex items-center gap-3 flex-wrap">
-                                            <BookOpen className="icon-lg text-blue-400" />
-                                            📚 My Collection
-                                            {collection.length > 0 && (
-                                                <span className="text-sm text-gray-400 bg-gray-800/50 px-3 py-1 rounded-full">
-                                                    {totalCards} total cards
-                                                </span>
-                                            )}
-                                        </h2>
-                                        <div className="text-right">
-                                            <div className="text-3xl font-bold text-green-400 mb-1">{formatPrice(collectionValue)}</div>
-                                            <div className="text-sm text-gray-400">💎 Total Value</div>
-                                        </div>
-                                    </div>
-                                    
-                                    {collection.length > 0 ? (
-                                        <div className="grid gap-6">
-                                            {collection.map(card => (
-                                                <div key={`${card.id}-${card.dateAdded}`} className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-2xl p-6 border border-gray-600 backdrop-blur-sm transform hover:scale-[1.01] transition-transform duration-300">
-                                                    <div className="flex justify-between items-start flex-wrap gap-4">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="text-2xl font-bold text-white mb-2">{card.name}</h3>
-                                                            <div className="flex items-center gap-4 mb-3 flex-wrap">
-                                                                <span className="text-blue-400 font-mono text-lg">{card.manaCost}</span>
-                                                                <span className={`font-semibold ${getRarityColor(card.rarity)}`}>{card.rarity}</span>
-                                                                <span className="text-gray-400">Qty: {card.quantity}</span>
-                                                                {card.setName && (
-                                                                    <span className="text-gray-500 text-sm">{card.setName}</span>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-gray-400 mb-2">{card.type}</p>
-                                                            {card.artist && (
-                                                                <p className="text-gray-500 text-sm">Art by {card.artist}</p>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-2xl font-bold text-green-400 mb-1">
-                                                                {formatPrice(card.price * card.quantity)}
-                                                            </div>
-                                                            <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
-                                                            {card.dateAdded && (
-                                                                <div className="text-xs text-gray-500 mt-1">
-                                                                    Added {new Date(card.dateAdded).toLocaleDateString()}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <div className="bg-gray-800/50 rounded-lg p-4 mt-4">
-                                                        <p className="text-gray-300 text-sm leading-relaxed">{card.text}</p>
-                                                    </div>
-                                                    
-                                                    {card.power && card.toughness && (
-                                                        <div className="flex items-center gap-2 mt-4">
-                                                            <span className="text-red-400">⚔️</span>
-                                                            <span className="text-white font-bold">{card.power}/{card.toughness}</span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    <div className="flex gap-3 mt-4 flex-wrap">
-                                                        <button 
-                                                            onClick={() => addToCollection(card)}
-                                                            className="flex-1 min-w-32 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-all duration-300"
-                                                        >
-                                                            ➕ Add Another
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => setCollection(collection.filter(c => c.id !== card.id))}
-                                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                                                        >
-                                                            🗑️ Remove
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-center py-16">
-                                            <BookOpen className="icon-xl text-purple-400 mx-auto mb-6 animate-bounce" />
-                                            <p className="text-purple-400 text-2xl font-bold mb-2">📚 Start Your Collection</p>
-                                            <p className="text-lg text-gray-400 mb-6">Scan or search for cards to add them to your collection</p>
-                                            <div className="flex gap-4 justify-center flex-wrap">
-                                                <button 
-                                                    onClick={() => setActiveTab('scanner')}
-                                                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-300"
-                                                >
-                                                    <Camera className="icon" />
-                                                    Start Scanning
-                                                </button>
-                                                <button 
-                                                    onClick={() => setActiveTab('search')}
-                                                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-300"
-                                                >
-                                                    <Search className="icon" />
-                                                    Search Cards
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Enhanced Floating Action Button */}
-                    {activeTab !== 'scanner' && (
-                        <button
-                            onClick={() => setActiveTab('scanner')}
-                            className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full flex items-center justify-center shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 z-50"
-                        >
-                            <Camera className="icon-lg" />
-                        </button>
-                    )}
-
-                    {/* Mobile Status Bar */}
-                    {isMobile && (
-                        <div className="fixed bottom-4 left-4 right-4 bg-black/80 backdrop-blur-sm rounded-lg p-2 flex items-center justify-between text-xs text-gray-400 z-40">
-                            <div className="flex items-center gap-2">
-                                <ApiStatusIndicator />
-                            </div>
-                            <div>
-                                {cardDatabase.length > 0 && `${cardDatabase.length} cards loaded`}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // Bulletproof component rendering with error boundary
-        const App = () => {
-            const [hasError, setHasError] = useState(false);
-            
-            try {
-                if (hasError) {
-                    return (
-                        <div className="min-h-screen bg-gradient-to-br from-red-900 via-gray-900 to-gray-800 text-white flex items-center justify-center p-8">
-                            <div className="text-center">
-                                <h1 className="text-4xl font-bold mb-4">⚠️ Something went wrong</h1>
-                                <p className="text-lg mb-6">Don't worry, let's get you back to scanning!</p>
-                                <button 
-                                    onClick={() => {
-                                        setHasError(false);
-                                        window.location.reload();
-                                    }}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                                >
-                                    🔄 Reload Scanner
-                                </button>
-                            </div>
-                        </div>
-                    );
-                }
-                
-                return <MTGCardScanner />;
-            } catch (error) {
-                console.error('App error:', error);
-                setHasError(true);
-                return null;
-            }
-        };
-
-        // Bulletproof initialization
-        try {
-            console.log('🚀 Initializing MTG Scanner Pro...');
-            ReactDOM.render(React.createElement(App), document.getElementById('root'));
-            console.log('✅ MTG Scanner Pro loaded successfully!');
-        } catch (error) {
-            console.error('❌ Failed to initialize app:', error);
-            
-            // Last resort fallback
-            document.getElementById('root').innerHTML = `
-                <div style="min-height: 100vh; background: linear-gradient(135deg, #7c3aed, #3b82f6, #1e40af); color: white; display: flex; align-items: center; justify-content: center; padding: 2rem; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-                    <div style="text-align: center; max-width: 500px;">
-                        <h1 style="font-size: 3rem; margin-bottom: 1rem;">🔮 MTG Scanner Pro</h1>
-                        <p style="font-size: 1.25rem; margin-bottom: 2rem; opacity: 0.9;">Loading failed. Please refresh the page.</p>
-                        <button onclick="window.location.reload()" style="background: #3b82f6; color: white; border: none; padding: 1rem 2rem; border-radius: 0.5rem; font-size: 1rem; cursor: pointer;">
-                            🔄 Refresh Page
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-    </script>
-</body>
-</html><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔮 MTG Scanner Pro - AI Card Recognition</title>
+    <title>🔮 MTG Scanner Pro</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-bounce { animation: bounce 1s infinite; }
-        @keyframes bounce { 0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8,0,1,1); } 50% { transform: none; animation-timing-function: cubic-bezier(0,0,0.2,1); } }
         .icon { width: 1rem; height: 1rem; display: inline-block; fill: currentColor; }
         .icon-lg { width: 1.5rem; height: 1.5rem; }
-        .icon-xl { width: 2rem; height: 2rem; }
-        /* Mobile-specific optimizations */
-        @media (max-width: 768px) {
-            .mobile-hidden { display: none; }
-            .mobile-full { width: 100vw; margin-left: calc(-50vw + 50%); }
-        }
+        .animate-spin { animation: spin 1s linear infinite; }
+        .animate-pulse { animation: pulse 2s infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
 <body>
     <div id="root"></div>
+
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // Bulletproof icon components
-        const Camera = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        // Simple icons
+        const Camera = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
             </svg>
         );
 
-        const Search = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        const Search = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/>
                 <path d="m21 21-4.35-4.35"/>
             </svg>
         );
 
-        const Star = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
-            </svg>
-        );
-
-        const BookOpen = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        const BookOpen = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
             </svg>
         );
 
-        const Eye = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-            </svg>
-        );
-
-        const Loader = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        const Loader = () => (
+            <svg className="icon animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="12" y1="2" x2="12" y2="6"/>
                 <line x1="12" y1="18" x2="12" y2="22"/>
                 <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
@@ -725,595 +58,465 @@
             </svg>
         );
 
-        const Upload = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        const Upload = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7,10 12,15 17,10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
         );
 
-        const X = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
+        const Eye = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
             </svg>
         );
 
-        const Zap = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+        const Star = () => (
+            <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
             </svg>
         );
 
-        const Wifi = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-                <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-                <line x1="12" y1="20" x2="12.01" y2="20"/>
-            </svg>
-        );
-
-        const WifiOff = ({ className = "icon" }) => (
-            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="2" y1="2" x2="22" y2="22"/>
-                <path d="M8.5 16.429a5 5 0 0 1 7 0"/>
-                <path d="M12 18.5l.5.5-.5.5-.5-.5.5-.5z"/>
-            </svg>
-        );
-
-        const MTGCardScanner = () => {
-            // Core state
+        const MTGScanner = () => {
+            const [activeTab, setActiveTab] = useState('scanner');
             const [isScanning, setIsScanning] = useState(false);
             const [recognizedCard, setRecognizedCard] = useState(null);
             const [collection, setCollection] = useState([]);
-            const [searchResults, setSearchResults] = useState([]);
             const [searchQuery, setSearchQuery] = useState('');
+            const [searchResults, setSearchResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
-            const [activeTab, setActiveTab] = useState('scanner');
-            
-            // API state
-            const [cardDatabase, setCardDatabase] = useState([]);
-            const [isLoadingDatabase, setIsLoadingDatabase] = useState(false);
-            const [apiStatus, setApiStatus] = useState('checking');
-            
-            // Camera state
-            const [availableCameras, setAvailableCameras] = useState([]);
-            const [selectedCamera, setSelectedCamera] = useState('');
             const [cameraError, setCameraError] = useState('');
-            const [isMobile, setIsMobile] = useState(false);
+            const [cardDatabase, setCardDatabase] = useState([]);
             
-            // Refs
             const videoRef = useRef(null);
             const canvasRef = useRef(null);
             const fileInputRef = useRef(null);
 
-            // Detect mobile device
+            // Sample card database
+            const sampleCards = [
+                {
+                    id: '1',
+                    name: 'Lightning Bolt',
+                    manaCost: '{R}',
+                    type: 'Instant',
+                    rarity: 'Common',
+                    text: 'Lightning Bolt deals 3 damage to any target.',
+                    price: 0.50,
+                    colors: ['Red'],
+                    cmc: 1
+                },
+                {
+                    id: '2',
+                    name: 'Black Lotus',
+                    manaCost: '{0}',
+                    type: 'Artifact',
+                    rarity: 'Mythic Rare',
+                    text: '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
+                    price: 25000.00,
+                    colors: ['Colorless'],
+                    cmc: 0
+                },
+                {
+                    id: '3',
+                    name: 'Jace, the Mind Sculptor',
+                    manaCost: '{2}{U}{U}',
+                    type: 'Legendary Planeswalker — Jace',
+                    rarity: 'Mythic Rare',
+                    text: '+2: Look at the top card of target player\'s library.',
+                    price: 120.00,
+                    colors: ['Blue'],
+                    cmc: 4
+                }
+            ];
+
             useEffect(() => {
-                const checkMobile = () => {
-                    setIsMobile(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-                };
-                checkMobile();
-                window.addEventListener('resize', checkMobile);
-                return () => window.removeEventListener('resize', checkMobile);
+                setCardDatabase(sampleCards);
+                console.log('MTG Scanner loaded!');
             }, []);
 
-            // Bulletproof card loading from Scryfall API
-            const loadCardsFromScryfall = async () => {
-                setIsLoadingDatabase(true);
-                setApiStatus('connecting');
-                
+            const startCamera = async () => {
                 try {
-                    console.log('🔮 Loading cards from Scryfall API...');
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment' }
+                    });
                     
-                    // Multiple API endpoints for reliability
-                    const endpoints = [
-                        'https://api.scryfall.com/cards/search?q=is:commander OR type:planeswalker OR name:"Lightning Bolt"&page=1&order=name',
-                        'https://api.scryfall.com/cards/search?q=type:creature&page=1&order=name',
-                        'https://api.scryfall.com/cards/search?q=rarity:mythic&page=1&order=name'
-                    ];
-                    
-                    let data = null;
-                    
-                    // Try multiple endpoints for bulletproof loading
-                    for (const endpoint of endpoints) {
-                        try {
-                            const response = await fetch(endpoint);
-                            if (response.ok) {
-                                data = await response.json();
-                                break;
-                            }
-                        } catch (err) {
-                            console.warn('Endpoint failed, trying next...', err);
-                        }
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        setIsScanning(true);
+                        setCameraError('');
                     }
-                    
-                    if (data && data.data && data.data.length > 0) {
-                        const processedCards = data.data.map(card => ({
-                            id: card.id,
-                            name: card.name,
-                            manaCost: card.mana_cost || '{0}',
-                            type: card.type_line,
-                            rarity: card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1),
-                            text: card.oracle_text || 'No rules text available.',
-                            power: card.power || null,
-                            toughness: card.toughness || null,
-                            price: parseFloat(card.prices?.usd || card.prices?.usd_foil || '0.00'),
-                            imageUrl: card.image_uris?.normal || card.image_uris?.large || card.image_uris?.small || '',
-                            colors: card.colors || ['Colorless'],
-                            cmc: card.cmc || 0,
-                            setName: card.set_name,
-                            artist: card.artist
-                        }));
-                        
-                        setCardDatabase(processedCards);
-                        setApiStatus('connected');
-                        console.log(`✅ Loaded ${processedCards.length} REAL MTG cards from Scryfall!`);
-                    } else {
-                        throw new Error('No cards found in API response');
-                    }
-                } catch (error) {
-                    console.error('❌ Error loading cards from Scryfall:', error);
-                    setApiStatus('error');
-                    
-                    // Bulletproof fallback cards
-                    const fallbackCards = [
-                        {
-                            id: 'fallback-1',
-                            name: 'Lightning Bolt',
-                            manaCost: '{R}',
-                            type: 'Instant',
-                            rarity: 'Common',
-                            text: 'Lightning Bolt deals 3 damage to any target.',
-                            power: null,
-                            toughness: null,
-                            price: 0.50,
-                            imageUrl: '',
-                            colors: ['Red'],
-                            cmc: 1,
-                            setName: 'Multiple Sets',
-                            artist: 'Christopher Rush'
-                        },
-                        {
-                            id: 'fallback-2',
-                            name: 'Black Lotus',
-                            manaCost: '{0}',
-                            type: 'Artifact',
-                            rarity: 'Mythic Rare',
-                            text: '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
-                            power: null,
-                            toughness: null,
-                            price: 25000.00,
-                            imageUrl: '',
-                            colors: ['Colorless'],
-                            cmc: 0,
-                            setName: 'Alpha',
-                            artist: 'Christopher Rush'
-                        },
-                        {
-                            id: 'fallback-3',
-                            name: 'Jace, the Mind Sculptor',
-                            manaCost: '{2}{U}{U}',
-                            type: 'Legendary Planeswalker — Jace',
-                            rarity: 'Mythic Rare',
-                            text: '+2: Look at the top card of target player\'s library. You may put that card on the bottom of that player\'s library.',
-                            power: null,
-                            toughness: null,
-                            price: 120.00,
-                            imageUrl: '',
-                            colors: ['Blue'],
-                            cmc: 4,
-                            setName: 'Worldwake',
-                            artist: 'Jason Chan'
-                        }
-                    ];
-                    
-                    setCardDatabase(fallbackCards);
-                    console.log('✅ Using bulletproof fallback card database');
-                } finally {
-                    setIsLoadingDatabase(false);
+                } catch (err) {
+                    setCameraError('Camera access denied. Please allow camera permissions.');
+                    console.error('Camera error:', err);
                 }
             };
 
-            // Bulletproof search functionality
-            const searchCards = async (query) => {
-                if (!query.trim()) {
+            const stopCamera = () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const tracks = videoRef.current.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    videoRef.current.srcObject = null;
+                }
+                setIsScanning(false);
+            };
+
+            const captureImage = () => {
+                if (videoRef.current && canvasRef.current) {
+                    const canvas = canvasRef.current;
+                    const context = canvas.getContext('2d');
+                    canvas.width = videoRef.current.videoWidth;
+                    canvas.height = videoRef.current.videoHeight;
+                    context.drawImage(videoRef.current, 0, 0);
+                    recognizeCard();
+                }
+            };
+
+            const recognizeCard = async () => {
+                setIsLoading(true);
+                
+                // Simulate AI recognition
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const randomCard = cardDatabase[Math.floor(Math.random() * cardDatabase.length)];
+                setRecognizedCard({
+                    ...randomCard,
+                    confidence: Math.floor(Math.random() * 20) + 80
+                });
+                
+                setIsLoading(false);
+            };
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    recognizeCard();
+                }
+            };
+
+            const searchCards = (query) => {
+                if (!query) {
                     setSearchResults([]);
                     return;
                 }
                 
-                setIsLoading(true);
-                
-                try {
-                    console.log(`🔍 Searching for: "${query}"`);
-                    
-                    // Try API search first
-                    try {
-                        const response = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&page=1&order=name`);
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            
-                            if (data.data && data.data.length > 0) {
-                                const results = data.data.slice(0, 20).map(card => ({
-                                    id: card.id,
-                                    name: card.name,
-                                    manaCost: card.mana_cost || '{0}',
-                                    type: card.type_line,
-                                    rarity: card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1),
-                                    text: card.oracle_text || 'No rules text available.',
-                                    power: card.power || null,
-                                    toughness: card.toughness || null,
-                                    price: parseFloat(card.prices?.usd || card.prices?.usd_foil || '0.00'),
-                                    colors: card.colors || ['Colorless'],
-                                    cmc: card.cmc || 0,
-                                    setName: card.set_name,
-                                    artist: card.artist
-                                }));
-                                
-                                setSearchResults(results);
-                                return;
-                            }
-                        }
-                    } catch (apiErr) {
-                        console.warn('API search failed, using local search:', apiErr);
-                    }
-                    
-                    // Fallback to local database search
-                    const localResults = cardDatabase.filter(card =>
-                        card.name.toLowerCase().includes(query.toLowerCase()) ||
-                        card.type.toLowerCase().includes(query.toLowerCase()) ||
-                        card.text.toLowerCase().includes(query.toLowerCase())
-                    ).slice(0, 20);
-                    
-                    setSearchResults(localResults);
-                    console.log(`✅ Found ${localResults.length} local results`);
-                    
-                } catch (error) {
-                    console.error('Search error:', error);
-                    setSearchResults([]);
-                } finally {
-                    setIsLoading(false);
-                }
+                const results = cardDatabase.filter(card =>
+                    card.name.toLowerCase().includes(query.toLowerCase())
+                );
+                setSearchResults(results);
             };
 
-            // Bulletproof camera detection
-            const getAvailableCameras = async () => {
-                try {
-                    console.log('📷 Detecting cameras...');
-                    
-                    // Request permissions first for better camera detection
-                    try {
-                        await navigator.mediaDevices.getUserMedia({ video: true });
-                    } catch (permErr) {
-                        console.warn('Permission request failed:', permErr);
-                    }
-                    
-                    const devices = await navigator.mediaDevices.enumerateDevices();
-                    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                    
-                    const cameras = videoDevices.map((device, index) => ({
-                        deviceId: device.deviceId,
-                        label: device.label || `Camera ${index + 1}` + (isMobile && index === 0 ? ' (Rear)' : isMobile && index === 1 ? ' (Front)' : ''),
-                        groupId: device.groupId
-                    }));
-                    
-                    setAvailableCameras(cameras);
-                    
-                    // Smart camera selection for mobile
-                    if (cameras.length > 0 && !selectedCamera) {
-                        // On mobile, prefer the rear camera (usually first or environment-facing)
-                        const preferredCamera = isMobile ? 
-                            cameras.find(c => c.label.toLowerCase().includes('back') || c.label.includes('Rear')) || cameras[0] :
-                            cameras[0];
-                        setSelectedCamera(preferredCamera.deviceId);
-                    }
-                    
-                    console.log(`✅ Found ${cameras.length} cameras:`, cameras);
-                    return cameras;
-                } catch (error) {
-                    console.error('❌ Error getting cameras:', error);
-                    setCameraError('Unable to access camera devices. Please check permissions.');
-                    return [];
-                }
-            };
-
-            // Bulletproof camera startup with multiple fallbacks
-            const startCamera = async () => {
-                setCameraError('');
-                
-                try {
-                    console.log('📷 Starting camera...');
-                    
-                    // Get cameras first
-                    let cameras = availableCameras;
-                    if (cameras.length === 0) {
-                        cameras = await getAvailableCameras();
-                    }
-                    
-                    const cameraId = selectedCamera || (cameras.length > 0 ? cameras[0].deviceId : null);
-                    let stream = null;
-                    
-                    // Bulletproof camera constraints with multiple fallbacks
-                    const constraintSets = [
-                        // Try 1: Specific camera with high quality
-                        cameraId ? {
-                            video: {
-                                deviceId: { exact: cameraId },
-                                width: { ideal: 1920, min: 640 },
-                                height: { ideal: 1080, min: 480 },
-                                frameRate: { ideal: 30, min: 15 }
-                            }
-                        } : null,
-                        
-                        // Try 2: Environment camera (mobile rear camera)
-                        {
-                            video: {
-                                facingMode: 'environment',
-                                width: { ideal: 1280, min: 640 },
-                                height: { ideal: 720, min: 480 }
-                            }
-                        },
-                        
-                        // Try 3: User camera (mobile front camera)
-                        {
-                            video: {
-                                facingMode: 'user',
-                                width: { ideal: 1280, min: 640 },
-                                height: { ideal: 720, min: 480 }
-                            }
-                        },
-                        
-                        // Try 4: Any camera with medium quality
-                        {
-                            video: {
-                                width: { ideal: 1280, min: 640 },
-                                height: { ideal: 720, min: 480 }
-                            }
-                        },
-                        
-                        // Try 5: Basic camera (last resort)
-                        { video: true }
-                    ].filter(Boolean);
-                    
-                    // Try each constraint set until one works
-                    for (const constraints of constraintSets) {
-                        try {
-                            console.log('📷 Trying camera constraints:', constraints);
-                            stream = await navigator.mediaDevices.getUserMedia(constraints);
-                            console.log('✅ Camera started successfully');
-                            break;
-                        } catch (err) {
-                            console.warn('❌ Camera constraint failed, trying next...', err);
-                        }
-                    }
-                    
-                    if (!stream) {
-                        throw new Error('All camera constraint attempts failed');
-                    }
-                    
-                    // Set up video element
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                        
-                        // Bulletproof video loading
-                        videoRef.current.onloadedmetadata = () => {
-                            console.log('✅ Video metadata loaded');
-                            setIsScanning(true);
-                        };
-                        
-                        videoRef.current.onerror = (e) => {
-                            console.error('❌ Video error:', e);
-                            setCameraError('Video playback failed. Please try refreshing the page.');
-                        };
-                        
-                        // Mobile-specific video settings
-                        if (isMobile) {
-                            videoRef.current.setAttribute('playsinline', 'true');
-                            videoRef.current.setAttribute('webkit-playsinline', 'true');
-                        }
-                    }
-                    
-                } catch (err) {
-                    console.error('❌ Camera startup error:', err);
-                    
-                    let errorMessage = '📷 Camera access failed. ';
-                    
-                    if (err.name === 'NotAllowedError') {
-                        errorMessage += 'Please allow camera permissions and try again.';
-                    } else if (err.name === 'NotFoundError') {
-                        errorMessage += 'No camera found. Please ensure you have a working camera.';
-                    } else if (err.name === 'NotReadableError') {
-                        errorMessage += 'Camera is busy. Please close other apps using the camera.';
-                    } else if (err.name === 'OverconstrainedError') {
-                        errorMessage += 'Camera settings not supported. Trying basic mode...';
-                        
-                        // Last resort: ultra-basic camera
-                        try {
-                            const basicStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                            if (videoRef.current) {
-                                videoRef.current.srcObject = basicStream;
-                                setIsScanning(true);
-                                return;
-                            }
-                        } catch (basicErr) {
-                            errorMessage += ' Basic mode also failed.';
-                        }
-                    } else {
-                        errorMessage += 'Please check permissions and try again.';
-                    }
-                    
-                    setCameraError(errorMessage);
-                }
-            };
-
-            // Bulletproof camera stop
-            const stopCamera = () => {
-                try {
-                    if (videoRef.current && videoRef.current.srcObject) {
-                        const tracks = videoRef.current.srcObject.getTracks();
-                        tracks.forEach(track => {
-                            track.stop();
-                            console.log('📷 Camera track stopped');
-                        });
-                        videoRef.current.srcObject = null;
-                    }
-                    setIsScanning(false);
-                    console.log('✅ Camera stopped successfully');
-                } catch (err) {
-                    console.error('❌ Error stopping camera:', err);
-                    setIsScanning(false);
-                }
-            };
-
-            // Bulletproof image capture
-            const captureImage = () => {
-                try {
-                    if (!videoRef.current || !canvasRef.current) {
-                        throw new Error('Video or canvas not available');
-                    }
-                    
-                    if (videoRef.current.readyState !== 4) {
-                        throw new Error('Video not ready for capture');
-                    }
-                    
-                    const canvas = canvasRef.current;
-                    const context = canvas.getContext('2d');
-                    
-                    // Set canvas size to match video
-                    canvas.width = videoRef.current.videoWidth || 640;
-                    canvas.height = videoRef.current.videoHeight || 480;
-                    
-                    // Draw the current video frame
-                    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-                    
-                    // Convert to image data with high quality
-                    const imageData = canvas.toDataURL('image/jpeg', 0.9);
-                    
-                    console.log('✅ Image captured successfully');
-                    recognizeCard(imageData);
-                    
-                } catch (err) {
-                    console.error('❌ Image capture error:', err);
-                    setCameraError(`Capture failed: ${err.message}. Please try again.`);
-                }
-            };
-
-            // Bulletproof AI recognition with enhanced simulation
-            const recognizeCard = async (imageData) => {
-                setIsLoading(true);
-                
-                try {
-                    console.log('🔮 Starting AI recognition...');
-                    
-                    // Simulate AI processing time
-                    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
-                    
-                    if (cardDatabase.length === 0) {
-                        throw new Error('Card database not loaded');
-                    }
-                    
-                    // Enhanced card selection logic
-                    const popularCards = cardDatabase.filter(card => 
-                        card.name.includes('Lightning') || 
-                        card.name.includes('Black') || 
-                        card.name.includes('Jace') ||
-                        card.type.includes('Planeswalker') ||
-                        card.rarity === 'Mythic Rare' ||
-                        card.price > 10
-                    );
-                    
-                    const cardPool = popularCards.length > 5 ? popularCards : cardDatabase;
-                    const randomCard = cardPool[Math.floor(Math.random() * cardPool.length)];
-                    
-                    // Realistic confidence based on card complexity
-                    let confidence = Math.round((Math.random() * 25) + 75);
-                    if (randomCard.rarity === 'Common') confidence += 10;
-                    if (randomCard.name.includes('Lightning Bolt')) confidence += 15;
-                    confidence = Math.min(confidence, 99);
-                    
-                    const recognitionResult = {
-                        ...randomCard,
-                        confidence: confidence,
-                        timestamp: new Date().toISOString(),
-                        recognitionMethod: confidence > 90 ? '🎯 High Confidence Match' : '🔮 AI Recognition',
-                        processingTime: '1.2s'
-                    };
-                    
-                    setRecognizedCard(recognitionResult);
-                    console.log(`✅ Recognized ${randomCard.name} with ${confidence}% confidence`);
-                    
-                } catch (error) {
-                    console.error('❌ Recognition error:', error);
-                    setRecognizedCard({
-                        error: error.message.includes('database') ? 
-                            "Card database loading. Please wait a moment." : 
-                            "Recognition failed. Please try again with better lighting.",
-                        confidence: 0
-                    });
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            // Bulletproof file upload
-            const handleFileUpload = (event) => {
-                try {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    
-                    // Validate file type
-                    if (!file.type.startsWith('image/')) {
-                        setCameraError('Please select a valid image file.');
-                        return;
-                    }
-                    
-                    // Validate file size (max 10MB)
-                    if (file.size > 10 * 1024 * 1024) {
-                        setCameraError('Image file too large. Please select a smaller image.');
-                        return;
-                    }
-                    
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        console.log('✅ Image uploaded successfully');
-                        recognizeCard(e.target.result);
-                    };
-                    reader.onerror = () => {
-                        setCameraError('Failed to read image file. Please try again.');
-                    };
-                    reader.readAsDataURL(file);
-                    
-                } catch (err) {
-                    console.error('❌ File upload error:', err);
-                    setCameraError('File upload failed. Please try again.');
-                }
-            };
-
-            // Bulletproof collection management
             const addToCollection = (card) => {
-                try {
-                    const existingCard = collection.find(c => c.id === card.id);
-                    if (existingCard) {
-                        setCollection(collection.map(c => 
-                            c.id === card.id ? { ...c, quantity: c.quantity + 1 } : c
-                        ));
-                        console.log(`✅ Added another ${card.name} (total: ${existingCard.quantity + 1})`);
-                    } else {
-                        setCollection([...collection, { 
-                            ...card, 
-                            quantity: 1, 
-                            dateAdded: new Date().toISOString() 
-                        }]);
-                        console.log(`✅ Added ${card.name} to collection`);
-                    }
-                } catch (err) {
-                    console.error('❌ Collection error:', err);
+                const exists = collection.find(c => c.id === card.id);
+                if (exists) {
+                    setCollection(collection.map(c => 
+                        c.id === card.id ? {...c, quantity: c.quantity + 1} : c
+                    ));
+                } else {
+                    setCollection([...collection, {...card, quantity: 1}]);
                 }
             };
 
-            // Initialize on mount
-            useEffect(() => {
-                console.log('🚀 MTG Scanner Pro initializing...');
-                loadCardsFromScryfall
+            const formatPrice = (price) => {
+                if (price >= 1000) return `$${(price/1000).toFixed(1)}k`;
+                return `$${price.toFixed(2)}`;
+            };
+
+            const getRarityColor = (rarity) => {
+                switch(rarity) {
+                    case 'Common': return 'text-gray-400';
+                    case 'Uncommon': return 'text-blue-400';
+                    case 'Rare': return 'text-yellow-400';
+                    case 'Mythic Rare': return 'text-red-400';
+                    default: return 'text-gray-400';
+                }
+            };
+
+            const collectionValue = collection.reduce((sum, card) => sum + (card.price * card.quantity), 0);
+            const totalCards = collection.reduce((sum, card) => sum + card.quantity, 0);
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+                    {/* Header */}
+                    <div className="bg-black/30 backdrop-blur-sm border-b border-white/10 p-4">
+                        <div className="max-w-4xl mx-auto flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
+                                    <Eye />
+                                </div>
+                                <div>
+                                    <h1 className="text-2xl font-bold">🔮 MTG Scanner Pro</h1>
+                                    <p className="text-sm text-gray-400">Master AI Recognition</p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xl font-bold text-blue-400">{totalCards} cards</div>
+                                <div className="text-green-400">{formatPrice(collectionValue)}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="max-w-4xl mx-auto p-4">
+                        <div className="flex gap-2 bg-black/20 rounded-xl p-2">
+                            {[
+                                {id: 'scanner', label: 'Scanner', icon: Camera},
+                                {id: 'search', label: 'Search', icon: Search},
+                                {id: 'collection', label: 'Collection', icon: BookOpen}
+                            ].map(tab => {
+                                const Icon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex-1 py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                                            activeTab === tab.id 
+                                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
+                                                : 'text-gray-400 hover:text-white'
+                                        }`}
+                                    >
+                                        <Icon />
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="max-w-4xl mx-auto p-4">
+                        {/* Scanner Tab */}
+                        {activeTab === 'scanner' && (
+                            <div className="bg-black/20 rounded-xl p-6">
+                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                    <Camera />
+                                    Card Scanner
+                                </h2>
+                                
+                                <div className="grid md:grid-cols-2 gap-6">
+                                    <div>
+                                        {cameraError && (
+                                            <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
+                                                <p className="text-red-300 text-sm">{cameraError}</p>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="bg-black rounded-lg overflow-hidden mb-4">
+                                            <video 
+                                                ref={videoRef} 
+                                                autoPlay 
+                                                playsInline
+                                                className="w-full h-64 object-cover"
+                                                style={{display: isScanning ? 'block' : 'none'}}
+                                            />
+                                            {!isScanning && (
+                                                <div className="w-full h-64 bg-gray-800 flex items-center justify-center">
+                                                    <div className="text-center">
+                                                        <Camera />
+                                                        <p className="text-gray-400 mt-2">Camera Ready</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="space-y-3">
+                                            {!isScanning ? (
+                                                <button 
+                                                    onClick={startCamera}
+                                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                >
+                                                    <Camera />
+                                                    Start Camera
+                                                </button>
+                                            ) : (
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={captureImage}
+                                                        disabled={isLoading}
+                                                        className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                    >
+                                                        {isLoading ? <Loader /> : '⚡'}
+                                                        {isLoading ? 'Scanning...' : 'Scan Card'}
+                                                    </button>
+                                                    <button 
+                                                        onClick={stopCamera}
+                                                        className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+                                                    >
+                                                        Stop
+                                                    </button>
+                                                </div>
+                                            )}
+                                            
+                                            <div>
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleFileUpload}
+                                                    className="hidden"
+                                                />
+                                                <button 
+                                                    onClick={() => fileInputRef.current?.click()}
+                                                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                >
+                                                    <Upload />
+                                                    Upload Image
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        {recognizedCard ? (
+                                            <div className="bg-gray-800 rounded-lg p-4">
+                                                <h3 className="text-lg font-bold mb-2">{recognizedCard.name}</h3>
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-blue-400">{recognizedCard.manaCost}</span>
+                                                    <span className={getRarityColor(recognizedCard.rarity)}>{recognizedCard.rarity}</span>
+                                                </div>
+                                                <p className="text-gray-400 text-sm mb-2">{recognizedCard.type}</p>
+                                                <p className="text-gray-300 text-sm mb-3">{recognizedCard.text}</p>
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-green-400 font-bold text-lg">{formatPrice(recognizedCard.price)}</span>
+                                                    {recognizedCard.confidence && (
+                                                        <span className="text-purple-400 text-sm">{recognizedCard.confidence}% confidence</span>
+                                                    )}
+                                                </div>
+                                                <button 
+                                                    onClick={() => addToCollection(recognizedCard)}
+                                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                >
+                                                    <Star />
+                                                    Add to Collection
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-gray-800/50 rounded-lg p-8 text-center">
+                                                <Eye />
+                                                <p className="text-gray-400 mt-2">Scan a card to get started</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <canvas ref={canvasRef} className="hidden" />
+                            </div>
+                        )}
+
+                        {/* Search Tab */}
+                        {activeTab === 'search' && (
+                            <div className="bg-black/20 rounded-xl p-6">
+                                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                    <Search />
+                                    Search Cards
+                                </h2>
+                                
+                                <div className="mb-6">
+                                    <input
+                                        type="text"
+                                        placeholder="Search for cards..."
+                                        value={searchQuery}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            searchCards(e.target.value);
+                                        }}
+                                        className="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400"
+                                    />
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {searchResults.length > 0 ? (
+                                        searchResults.map(card => (
+                                            <div key={card.id} className="bg-gray-800 rounded-lg p-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        <h3 className="text-lg font-bold mb-1">{card.name}</h3>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-blue-400">{card.manaCost}</span>
+                                                            <span className={getRarityColor(card.rarity)}>{card.rarity}</span>
+                                                        </div>
+                                                        <p className="text-gray-400 text-sm mb-2">{card.type}</p>
+                                                        <p className="text-gray-300 text-sm">{card.text}</p>
+                                                    </div>
+                                                    <div className="text-right ml-4">
+                                                        <div className="text-green-400 font-bold text-lg">{formatPrice(card.price)}</div>
+                                                        <button 
+                                                            onClick={() => addToCollection(card)}
+                                                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : searchQuery ? (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-400">No cards found for "{searchQuery}"</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8">
+                                            <Search />
+                                            <p className="text-gray-400 mt-2">Search for Magic cards</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Collection Tab */}
+                        {activeTab === 'collection' && (
+                            <div className="bg-black/20 rounded-xl p-6">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-xl font-bold flex items-center gap-2">
+                                        <BookOpen />
+                                        My Collection
+                                    </h2>
+                                    <div className="text-right">
+                                        <div className="text-2xl font-bold text-green-400">{formatPrice(collectionValue)}</div>
+                                        <div className="text-sm text-gray-400">Total Value</div>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {collection.length > 0 ? (
+                                        collection.map(card => (
+                                            <div key={`${card.id}-collection`} className="bg-gray-800/50 rounded-lg p-4">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        <h3 className="text-lg font-bold mb-1">{card.name}</h3>
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-blue-400">{card.manaCost}</span>
+                                                            <span className={getRarityColor(card.rarity)}>{card.rarity}</span>
+                                                            <span className="text-gray-400">Qty: {card.quantity}</span>
+                                                        </div>
+                                                        <p className="text-gray-400 text-sm">{card.type}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-green-400 font-bold text-lg">
+                                                            {formatPrice(card.price * card.quantity)}
+                                                        </div>
+                                                        <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-12">
+                                            <BookOpen />
+                                            <p className="text-gray-400 mt-2">No cards in collection yet</p>
+                                            <p className="text-sm text-gray-500">Scan or search for cards to add them</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Render the app
+        ReactDOM.render(React.createElement(MTGScanner), document.getElementById('root'));
+    </script>
+</body>
+</html>
