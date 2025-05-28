@@ -24,8 +24,7 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // Simple MTG Scanner Component
-        function MTGScanner() {
+        function MTGScannerApp() {
             const [activeTab, setActiveTab] = useState('scanner');
             const [isScanning, setIsScanning] = useState(false);
             const [recognizedCard, setRecognizedCard] = useState(null);
@@ -33,6 +32,7 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [searchResults, setSearchResults] = useState([]);
             const [isLoading, setIsLoading] = useState(false);
+            const [aiProgress, setAiProgress] = useState(0);
             
             const videoRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -40,40 +40,34 @@
             // Sample cards
             const cards = [
                 { 
-                    id: '1', 
-                    name: 'Lightning Bolt', 
-                    cost: '{R}', 
-                    type: 'Instant',
-                    rarity: 'Common', 
-                    text: 'Lightning Bolt deals 3 damage to any target.',
-                    price: 0.50
+                    id: '1', name: 'Lightning Bolt', cost: '{R}', type: 'Instant',
+                    rarity: 'Common', text: 'Lightning Bolt deals 3 damage to any target.',
+                    price: 0.50, artist: 'Christopher Rush'
                 },
                 { 
-                    id: '2', 
-                    name: 'Black Lotus', 
-                    cost: '{0}', 
-                    type: 'Artifact',
-                    rarity: 'Mythic Rare', 
-                    text: '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
-                    price: 27000.00
+                    id: '2', name: 'Black Lotus', cost: '{0}', type: 'Artifact',
+                    rarity: 'Mythic Rare', text: '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
+                    price: 27000.00, artist: 'Christopher Rush'
                 },
                 { 
-                    id: '3', 
-                    name: 'Jace, the Mind Sculptor', 
-                    cost: '{2}{U}{U}', 
-                    type: 'Legendary Planeswalker',
-                    rarity: 'Mythic Rare', 
-                    text: '+2: Look at the top card of target player\'s library.',
-                    price: 89.99
+                    id: '3', name: 'Jace, the Mind Sculptor', cost: '{2}{U}{U}', type: 'Legendary Planeswalker',
+                    rarity: 'Mythic Rare', text: '+2: Look at the top card of target player\'s library.',
+                    price: 89.99, artist: 'Jason Chan'
                 },
                 { 
-                    id: '4', 
-                    name: 'Counterspell', 
-                    cost: '{U}{U}', 
-                    type: 'Instant',
-                    rarity: 'Common', 
-                    text: 'Counter target spell.',
-                    price: 2.50
+                    id: '4', name: 'Counterspell', cost: '{U}{U}', type: 'Instant',
+                    rarity: 'Common', text: 'Counter target spell.',
+                    price: 2.50, artist: 'Mark Poole'
+                },
+                { 
+                    id: '5', name: 'Sol Ring', cost: '{1}', type: 'Artifact',
+                    rarity: 'Uncommon', text: '{T}: Add {C}{C}.',
+                    price: 1.25, artist: 'Mark Tedin'
+                },
+                { 
+                    id: '6', name: 'Tarmogoyf', cost: '{1}{G}', type: 'Creature — Lhurgoyf',
+                    rarity: 'Mythic Rare', text: 'Tarmogoyf\'s power is equal to the number of different card types among cards in all graveyards.',
+                    price: 45.00, artist: 'Ryan Barger', power: '*', toughness: '*+1'
                 }
             ];
 
@@ -102,10 +96,16 @@
                 setIsScanning(false);
             };
 
-            // Simulate AI scan
+            // AI scan simulation
             const scanCard = async () => {
                 setIsLoading(true);
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                setAiProgress(0);
+                
+                // Simulate AI processing
+                for (let i = 0; i <= 100; i += 20) {
+                    setAiProgress(i);
+                    await new Promise(resolve => setTimeout(resolve, 400));
+                }
                 
                 const randomCard = cards[Math.floor(Math.random() * cards.length)];
                 setRecognizedCard({
@@ -113,6 +113,15 @@
                     confidence: Math.floor(Math.random() * 20) + 80
                 });
                 setIsLoading(false);
+                setAiProgress(0);
+            };
+
+            // File upload
+            const handleFileUpload = async (event) => {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    await scanCard();
+                }
             };
 
             // Add to collection
@@ -141,7 +150,8 @@
                 
                 const results = cards.filter(card =>
                     card.name.toLowerCase().includes(query.toLowerCase()) ||
-                    card.type.toLowerCase().includes(query.toLowerCase())
+                    card.type.toLowerCase().includes(query.toLowerCase()) ||
+                    card.text.toLowerCase().includes(query.toLowerCase())
                 );
                 setSearchResults(results);
             };
@@ -182,7 +192,7 @@
                                     <span className="text-2xl">🔮</span>
                                 </div>
                                 <div>
-                                    <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                                    <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
                                         MTG Scanner Pro
                                     </h1>
                                     <p className="text-sm text-gray-300">🧠 AI Card Recognition</p>
@@ -190,7 +200,7 @@
                             </div>
                             <div className="text-right">
                                 <div className="text-sm text-gray-400">Collection</div>
-                                <div className="text-lg font-bold text-blue-400">{totalCards} cards</div>
+                                <div className="text-xl font-bold text-blue-400">{totalCards} cards</div>
                                 <div className="text-lg font-bold text-green-400">{formatPrice(totalValue)}</div>
                             </div>
                         </div>
@@ -223,7 +233,15 @@
                         {/* Scanner Tab */}
                         {activeTab === 'scanner' && (
                             <div className="bg-black/30 rounded-2xl p-6 backdrop-blur-lg">
-                                <h2 className="text-2xl font-bold mb-6">🧠 AI Card Scanner</h2>
+                                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    📷 AI Card Scanner
+                                    {isLoading && (
+                                        <span className="text-cyan-400 flex items-center gap-2">
+                                            <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                                            Processing {aiProgress}%
+                                        </span>
+                                    )}
+                                </h2>
                                 
                                 <div className="grid lg:grid-cols-2 gap-8">
                                     <div className="space-y-4">
@@ -253,6 +271,7 @@
                                                     <div className="text-center">
                                                         <div className="w-16 h-16 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
                                                         <p className="text-cyan-400 text-xl font-bold">🧠 AI Processing</p>
+                                                        <p className="text-white">{aiProgress}% Complete</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -289,11 +308,13 @@
                                                 ref={fileInputRef}
                                                 type="file"
                                                 accept="image/*"
+                                                onChange={handleFileUpload}
                                                 className="hidden"
                                             />
                                             <button 
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-4 rounded-xl font-bold text-lg"
+                                                disabled={isLoading}
+                                                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-white px-6 py-4 rounded-xl font-bold text-lg"
                                             >
                                                 📁 Upload Image
                                             </button>
@@ -312,6 +333,7 @@
                                                             <span className={`${getRarityColor(recognizedCard.rarity)} font-bold`}>{recognizedCard.rarity}</span>
                                                         </div>
                                                         <p className="text-gray-400">{recognizedCard.type}</p>
+                                                        <p className="text-gray-500 text-sm mt-2">🎨 {recognizedCard.artist}</p>
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="text-3xl font-bold text-green-400">{formatPrice(recognizedCard.price)}</div>
@@ -322,6 +344,15 @@
                                                 <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
                                                     <p className="text-gray-300">{recognizedCard.text}</p>
                                                 </div>
+                                                
+                                                {recognizedCard.power && recognizedCard.toughness && (
+                                                    <div className="flex items-center gap-2 mb-4">
+                                                        <span className="text-red-400 text-xl">⚔️</span>
+                                                        <span className="text-white font-bold text-xl">
+                                                            {recognizedCard.power}/{recognizedCard.toughness}
+                                                        </span>
+                                                    </div>
+                                                )}
                                                 
                                                 <button 
                                                     onClick={() => addToCollection(recognizedCard)}
@@ -373,6 +404,7 @@
                                                             <span className={`${getRarityColor(card.rarity)} font-bold text-sm`}>{card.rarity}</span>
                                                         </div>
                                                         <p className="text-gray-400 text-sm">{card.type}</p>
+                                                        <p className="text-gray-500 text-xs mt-1">🎨 {card.artist}</p>
                                                     </div>
                                                     <div className="text-xl font-bold text-green-400">{formatPrice(card.price)}</div>
                                                 </div>
@@ -409,43 +441,62 @@
                                 </div>
                                 
                                 {collection.length > 0 ? (
-                                    <div className="grid gap-4">
-                                        {collection.map(card => (
-                                            <div key={card.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div>
-                                                        <h3 className="text-xl font-bold text-white mb-1">{card.name}</h3>
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-blue-400 font-mono text-sm bg-blue-400/10 px-2 py-1 rounded">{card.cost}</span>
-                                                            <span className={`${getRarityColor(card.rarity)} font-bold text-sm`}>{card.rarity}</span>
-                                                            <span className="text-gray-300 bg-gray-700/30 px-2 py-1 rounded text-sm">Qty: {card.quantity}</span>
-                                                        </div>
-                                                        <p className="text-gray-400 text-sm">{card.type}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <div className="text-xl font-bold text-green-400">{formatPrice(card.price * card.quantity)}</div>
-                                                        <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
-                                                    <p className="text-gray-300 text-sm">{card.text}</p>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={() => addToCollection(card)}
-                                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold"
-                                                    >
-                                                        ➕ Add
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => removeFromCollection(card.id)}
-                                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
+                                    <div className="space-y-6">
+                                        {/* Stats */}
+                                        <div className="grid grid-cols-3 gap-4 mb-6">
+                                            <div className="bg-gray-800/50 rounded-xl p-4 text-center">
+                                                <div className="text-2xl font-bold text-blue-400">{totalCards}</div>
+                                                <div className="text-sm text-gray-400">Total Cards</div>
                                             </div>
-                                        ))}
+                                            <div className="bg-gray-800/50 rounded-xl p-4 text-center">
+                                                <div className="text-2xl font-bold text-green-400">{formatPrice(totalValue)}</div>
+                                                <div className="text-sm text-gray-400">Total Value</div>
+                                            </div>
+                                            <div className="bg-gray-800/50 rounded-xl p-4 text-center">
+                                                <div className="text-2xl font-bold text-purple-400">{collection.length}</div>
+                                                <div className="text-sm text-gray-400">Unique Cards</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Cards */}
+                                        <div className="grid gap-4">
+                                            {collection.map(card => (
+                                                <div key={card.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <h3 className="text-xl font-bold text-white mb-1">{card.name}</h3>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-blue-400 font-mono text-sm bg-blue-400/10 px-2 py-1 rounded">{card.cost}</span>
+                                                                <span className={`${getRarityColor(card.rarity)} font-bold text-sm`}>{card.rarity}</span>
+                                                                <span className="text-gray-300 bg-gray-700/30 px-2 py-1 rounded text-sm">Qty: {card.quantity}</span>
+                                                            </div>
+                                                            <p className="text-gray-400 text-sm">{card.type}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-xl font-bold text-green-400">{formatPrice(card.price * card.quantity)}</div>
+                                                            <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
+                                                        <p className="text-gray-300 text-sm">{card.text}</p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button 
+                                                            onClick={() => addToCollection(card)}
+                                                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold"
+                                                        >
+                                                            ➕ Add
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => removeFromCollection(card.id)}
+                                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-16">
@@ -471,12 +522,22 @@
                             </div>
                         )}
                     </div>
+
+                    {/* Floating Button */}
+                    {activeTab !== 'scanner' && (
+                        <button
+                            onClick={() => setActiveTab('scanner')}
+                            className="fixed bottom-8 right-8 w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-full flex items-center justify-center shadow-2xl text-2xl"
+                        >
+                            📷
+                        </button>
+                    )}
                 </div>
             );
         }
 
         // Initialize App
-        ReactDOM.render(React.createElement(MTGScanner), document.getElementById('root'));
+        ReactDOM.render(React.createElement(MTGScannerApp), document.getElementById('root'));
     </script>
 </body>
 </html>
