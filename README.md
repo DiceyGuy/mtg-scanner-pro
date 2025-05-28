@@ -11,7 +11,7 @@ The ultimate Magic: The Gathering card scanner with AI-powered recognition!
 - 🎨 **Beautiful modern interface** with animations
 
 ## 🚀 Try It Live
-**[Launch MTG Scanner Pro →](https://yourusername.github.io/mtg-scanner-pro/)**
+**[Launch MTG Scanner Pro →](https://diceyguy.github.io/mtg-scanner-pro/)**
 
 ## 📱 How to Use
 1. **Allow camera permissions** when prompted
