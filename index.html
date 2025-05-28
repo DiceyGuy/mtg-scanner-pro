@@ -8,6 +8,7 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="./services/CameraService.js"></script>
     <style>
         .icon { width: 1rem; height: 1rem; display: inline-block; fill: currentColor; }
         .icon-lg { width: 1.5rem; height: 1.5rem; }
@@ -22,6 +23,9 @@
 
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
+
+        // Create camera service instance
+        const cameraService = new window.CameraService();
 
         // Simple icons
         const Camera = () => (
@@ -90,6 +94,11 @@
             const [cameraError, setCameraError] = useState('');
             const [cardDatabase, setCardDatabase] = useState([]);
             
+            // Camera service state
+            const [availableCameras, setAvailableCameras] = useState([]);
+            const [selectedCamera, setSelectedCamera] = useState('');
+            const [cameraResolution, setCameraResolution] = useState('hd');
+            
             const videoRef = useRef(null);
             const canvasRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -131,45 +140,59 @@
                 }
             ];
 
+            // Initialize camera service and load data
             useEffect(() => {
+                console.log('🚀 MTG Scanner initializing...');
+                
+                // Set up camera service callbacks
+                cameraService.onCamerasChanged = (cameras, selected) => {
+                    setAvailableCameras(cameras);
+                    setSelectedCamera(selected);
+                };
+
+                cameraService.onErrorChanged = (error) => {
+                    setCameraError(error);
+                };
+
+                cameraService.onScanningChanged = (scanning) => {
+                    setIsScanning(scanning);
+                };
+
+                // Initialize services
                 setCardDatabase(sampleCards);
-                console.log('MTG Scanner loaded!');
+                cameraService.initialize(videoRef, canvasRef);
+                
+                // Cleanup on unmount
+                return () => cameraService.cleanup();
             }, []);
 
-            const startCamera = async () => {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: 'environment' }
-                    });
-                    
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                        setIsScanning(true);
-                        setCameraError('');
-                    }
-                } catch (err) {
-                    setCameraError('Camera access denied. Please allow camera permissions.');
-                    console.error('Camera error:', err);
-                }
+            // Camera control functions using the service
+            const handleStartCamera = () => {
+                cameraService.startCamera();
             };
 
-            const stopCamera = () => {
-                if (videoRef.current && videoRef.current.srcObject) {
-                    const tracks = videoRef.current.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                    videoRef.current.srcObject = null;
-                }
-                setIsScanning(false);
+            const handleStopCamera = () => {
+                cameraService.stopCamera();
             };
 
+            const handleCameraChange = (deviceId) => {
+                setSelectedCamera(deviceId);
+                cameraService.setSelectedCamera(deviceId);
+            };
+
+            const handleResolutionChange = (resolution) => {
+                setCameraResolution(resolution);
+                cameraService.setCameraResolution(resolution);
+            };
+
+            // Updated capture function using camera service
             const captureImage = () => {
-                if (videoRef.current && canvasRef.current) {
-                    const canvas = canvasRef.current;
-                    const context = canvas.getContext('2d');
-                    canvas.width = videoRef.current.videoWidth;
-                    canvas.height = videoRef.current.videoHeight;
-                    context.drawImage(videoRef.current, 0, 0);
+                try {
+                    const imageData = cameraService.captureImage();
+                    console.log('📸 Image captured, starting recognition...');
                     recognizeCard();
+                } catch (err) {
+                    setCameraError(err.message);
                 }
             };
 
@@ -247,7 +270,14 @@
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold">🔮 MTG Scanner Pro</h1>
-                                    <p className="text-sm text-gray-400">Master AI Recognition</p>
+                                    <p className="text-sm text-gray-400">
+                                        Master AI Recognition
+                                        {availableCameras.length > 0 && (
+                                            <span className="ml-2 text-green-400">
+                                                📷 {availableCameras.length} cameras detected
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
                             </div>
                             <div className="text-right">
@@ -295,6 +325,43 @@
                                 
                                 <div className="grid md:grid-cols-2 gap-6">
                                     <div>
+                                        {/* Camera Selection */}
+                                        {availableCameras.length > 1 && (
+                                            <div className="mb-4">
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    📷 Camera Selection:
+                                                </label>
+                                                <select
+                                                    value={selectedCamera}
+                                                    onChange={(e) => handleCameraChange(e.target.value)}
+                                                    className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white"
+                                                >
+                                                    {availableCameras.map((camera) => (
+                                                        <option key={camera.deviceId} value={camera.deviceId}>
+                                                            {camera.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Resolution Selection */}
+                                        <div className="mb-4">
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                ⚡ Scan Quality:
+                                            </label>
+                                            <select
+                                                value={cameraResolution}
+                                                onChange={(e) => handleResolutionChange(e.target.value)}
+                                                className="w-full p-2 bg-gray-800 border border-gray-600 rounded-lg text-white"
+                                            >
+                                                <option value="4k">🔥 4K Ultra (3840x2160)</option>
+                                                <option value="fhd">⚡ Full HD (1920x1080)</option>
+                                                <option value="hd">✨ HD (1280x720)</option>
+                                                <option value="sd">💨 Fast (640x480)</option>
+                                            </select>
+                                        </div>
+
                                         {cameraError && (
                                             <div className="bg-red-900/30 border border-red-500/50 rounded-lg p-3 mb-4">
                                                 <p className="text-red-300 text-sm">{cameraError}</p>
@@ -314,6 +381,7 @@
                                                     <div className="text-center">
                                                         <Camera />
                                                         <p className="text-gray-400 mt-2">Camera Ready</p>
+                                                        <p className="text-sm text-gray-500">Professional AI Recognition System</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -322,11 +390,12 @@
                                         <div className="space-y-3">
                                             {!isScanning ? (
                                                 <button 
-                                                    onClick={startCamera}
-                                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                    onClick={handleStartCamera}
+                                                    disabled={availableCameras.length === 0}
+                                                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
                                                 >
                                                     <Camera />
-                                                    Start Camera
+                                                    {availableCameras.length === 0 ? 'No Cameras Found' : '🚀 Start Camera'}
                                                 </button>
                                             ) : (
                                                 <div className="flex gap-2">
@@ -336,10 +405,10 @@
                                                         className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
                                                     >
                                                         {isLoading ? <Loader /> : '⚡'}
-                                                        {isLoading ? 'Scanning...' : 'Scan Card'}
+                                                        {isLoading ? 'AI Scanning...' : '⚡ Scan Card'}
                                                     </button>
                                                     <button 
-                                                        onClick={stopCamera}
+                                                        onClick={handleStopCamera}
                                                         className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg"
                                                     >
                                                         Stop
@@ -357,10 +426,11 @@
                                                 />
                                                 <button 
                                                     onClick={() => fileInputRef.current?.click()}
-                                                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
+                                                    disabled={isLoading}
+                                                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white py-3 px-4 rounded-lg flex items-center justify-center gap-2"
                                                 >
                                                     <Upload />
-                                                    Upload Image
+                                                    📁 Upload Image for AI Analysis
                                                 </button>
                                             </div>
                                         </div>
@@ -379,7 +449,9 @@
                                                 <div className="flex justify-between items-center mb-3">
                                                     <span className="text-green-400 font-bold text-lg">{formatPrice(recognizedCard.price)}</span>
                                                     {recognizedCard.confidence && (
-                                                        <span className="text-purple-400 text-sm">{recognizedCard.confidence}% confidence</span>
+                                                        <span className="text-purple-400 text-sm animate-pulse">
+                                                            🎯 {recognizedCard.confidence}% confidence
+                                                        </span>
                                                     )}
                                                 </div>
                                                 <button 
@@ -393,7 +465,8 @@
                                         ) : (
                                             <div className="bg-gray-800/50 rounded-lg p-8 text-center">
                                                 <Eye />
-                                                <p className="text-gray-400 mt-2">Scan a card to get started</p>
+                                                <p className="text-gray-400 mt-2">🎯 AI Ready for Recognition</p>
+                                                <p className="text-sm text-gray-500 mt-1">Position your Magic card in the camera frame</p>
                                             </div>
                                         )}
                                     </div>
@@ -413,7 +486,7 @@
                                 <div className="mb-6">
                                     <input
                                         type="text"
-                                        placeholder="Search for cards..."
+                                        placeholder="🔍 Search for cards... (e.g. 'Lightning Bolt', 'Jace')"
                                         value={searchQuery}
                                         onChange={(e) => {
                                             setSearchQuery(e.target.value);
@@ -426,7 +499,7 @@
                                 <div className="space-y-4">
                                     {searchResults.length > 0 ? (
                                         searchResults.map(card => (
-                                            <div key={card.id} className="bg-gray-800 rounded-lg p-4">
+                                            <div key={card.id} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1">
                                                         <h3 className="text-lg font-bold mb-1">{card.name}</h3>
@@ -441,8 +514,9 @@
                                                         <div className="text-green-400 font-bold text-lg">{formatPrice(card.price)}</div>
                                                         <button 
                                                             onClick={() => addToCollection(card)}
-                                                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm"
+                                                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm flex items-center gap-1"
                                                         >
+                                                            <Star />
                                                             Add
                                                         </button>
                                                     </div>
@@ -451,12 +525,15 @@
                                         ))
                                     ) : searchQuery ? (
                                         <div className="text-center py-8">
-                                            <p className="text-gray-400">No cards found for "{searchQuery}"</p>
+                                            <Search />
+                                            <p className="text-gray-400 mt-2">No cards found for "{searchQuery}"</p>
+                                            <p className="text-sm text-gray-500">Try different search terms</p>
                                         </div>
                                     ) : (
                                         <div className="text-center py-8">
                                             <Search />
-                                            <p className="text-gray-400 mt-2">Search for Magic cards</p>
+                                            <p className="text-gray-400 mt-2">🔍 Search Magic Cards</p>
+                                            <p className="text-sm text-gray-500">Find cards by name, type, or text</p>
                                         </div>
                                     )}
                                 </div>
@@ -470,24 +547,31 @@
                                     <h2 className="text-xl font-bold flex items-center gap-2">
                                         <BookOpen />
                                         My Collection
+                                        {collection.length > 0 && (
+                                            <span className="text-sm text-gray-400 bg-gray-800/50 px-2 py-1 rounded">
+                                                {totalCards} cards
+                                            </span>
+                                        )}
                                     </h2>
                                     <div className="text-right">
                                         <div className="text-2xl font-bold text-green-400">{formatPrice(collectionValue)}</div>
-                                        <div className="text-sm text-gray-400">Total Value</div>
+                                        <div className="text-sm text-gray-400">💎 Total Value</div>
                                     </div>
                                 </div>
                                 
                                 <div className="space-y-4">
                                     {collection.length > 0 ? (
                                         collection.map(card => (
-                                            <div key={`${card.id}-collection`} className="bg-gray-800/50 rounded-lg p-4">
+                                            <div key={`${card.id}-collection`} className="bg-gray-800/50 rounded-lg p-4 hover:bg-gray-800/70 transition-colors">
                                                 <div className="flex justify-between items-start">
                                                     <div className="flex-1">
                                                         <h3 className="text-lg font-bold mb-1">{card.name}</h3>
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <span className="text-blue-400">{card.manaCost}</span>
                                                             <span className={getRarityColor(card.rarity)}>{card.rarity}</span>
-                                                            <span className="text-gray-400">Qty: {card.quantity}</span>
+                                                            <span className="text-gray-400 bg-gray-700/50 px-2 py-1 rounded text-sm">
+                                                                Qty: {card.quantity}
+                                                            </span>
                                                         </div>
                                                         <p className="text-gray-400 text-sm">{card.type}</p>
                                                     </div>
@@ -496,6 +580,12 @@
                                                             {formatPrice(card.price * card.quantity)}
                                                         </div>
                                                         <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
+                                                        <button 
+                                                            onClick={() => addToCollection(card)}
+                                                            className="mt-2 text-blue-400 hover:text-blue-300 text-sm underline"
+                                                        >
+                                                            ➕ Add Another
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -503,8 +593,24 @@
                                     ) : (
                                         <div className="text-center py-12">
                                             <BookOpen />
-                                            <p className="text-gray-400 mt-2">No cards in collection yet</p>
-                                            <p className="text-sm text-gray-500">Scan or search for cards to add them</p>
+                                            <p className="text-gray-400 mt-2">📚 Start Your Collection</p>
+                                            <p className="text-sm text-gray-500 mb-6">Scan or search for cards to add them</p>
+                                            <div className="flex gap-4 justify-center">
+                                                <button 
+                                                    onClick={() => setActiveTab('scanner')}
+                                                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                                                >
+                                                    <Camera />
+                                                    Start Scanning
+                                                </button>
+                                                <button 
+                                                    onClick={() => setActiveTab('search')}
+                                                    className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                                                >
+                                                    <Search />
+                                                    Search Cards
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
