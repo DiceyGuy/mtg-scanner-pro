@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 MTG Scanner Pro - Revolutionary AI</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+        .icon { width: 1rem; height: 1rem; display: inline-block; fill: currentColor; }
+        .icon-lg { width: 1.5rem; height: 1.5rem; }
+        .icon-xl { width: 2rem; height: 2rem; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        .animate-pulse { animation: pulse 2s infinite; }
+        .animate-bounce { animation: bounce 1s infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(-25%); } 50% { transform: none; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Simple Icon Components
+        const Camera = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </svg>
+        );
+
+        const Search = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+            </svg>
+        );
+
+        const BookOpen = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+        );
+
+        const Eye = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+            </svg>
+        );
+
+        const Loader = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="2" x2="12" y2="6"/>
+                <line x1="12" y1="18" x2="12" y2="22"/>
+                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/>
+                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/>
+                <line x1="2" y1="12" x2="6" y2="12"/>
+                <line x1="18" y1="12" x2="22" y2="12"/>
+                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/>
+                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+            </svg>
+        );
+
+        const Star = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+            </svg>
+        );
+
+        const Zap = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+            </svg>
+        );
+
+        const Upload = ({ className = "icon" }) => (
+            <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7,10 12,15 17,10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+        );
+
+        // Revolutionary MTG Scanner Component
+        const MTGScanner = () => {
+            const [activeTab, setActiveTab] = useState('scanner');
+            const [isScanning, setIsScanning] = useState(false);
+            const [recognizedCard, setRecognizedCard] = useState(null);
+            const [collection, setCollection] = useState([]);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [searchResults, setSearchResults] = useState([]);
+            const [isLoading, setIsLoading] = useState(false);
+            const [aiProgress, setAiProgress] = useState(0);
+            
+            const videoRef = useRef(null);
+            const canvasRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            // Sample card database
+            const cardDatabase = [
+                {
+                    id: '1', name: 'Lightning Bolt', manaCost: '{R}', type: 'Instant',
+                    rarity: 'Common', text: 'Lightning Bolt deals 3 damage to any target.',
+                    price: 0.50, colors: ['Red'], cmc: 1, setName: 'Alpha', artist: 'Christopher Rush'
+                },
+                {
+                    id: '2', name: 'Black Lotus', manaCost: '{0}', type: 'Artifact',
+                    rarity: 'Mythic Rare', text: '{T}, Sacrifice Black Lotus: Add three mana of any one color.',
+                    price: 27000.00, colors: ['Colorless'], cmc: 0, setName: 'Alpha', artist: 'Christopher Rush'
+                },
+                {
+                    id: '3', name: 'Jace, the Mind Sculptor', manaCost: '{2}{U}{U}', type: 'Legendary Planeswalker — Jace',
+                    rarity: 'Mythic Rare', text: '+2: Look at the top card of target player\'s library. You may put that card on the bottom of that player\'s library.\n0: Draw three cards, then put two cards from your hand on top of your library in any order.\n-1: Return target creature to its owner\'s hand.\n-12: Exile all cards from target player\'s library, then that player shuffles their hand into their library.',
+                    price: 89.99, colors: ['Blue'], cmc: 4, setName: 'Worldwake', artist: 'Jason Chan'
+                },
+                {
+                    id: '4', name: 'Tarmogoyf', manaCost: '{1}{G}', type: 'Creature — Lhurgoyf',
+                    rarity: 'Mythic Rare', text: 'Tarmogoyf\'s power is equal to the number of different card types among cards in all graveyards and its toughness is equal to that number plus 1.',
+                    price: 45.00, colors: ['Green'], cmc: 2, setName: 'Future Sight', artist: 'Ryan Barger', power: '*', toughness: '*+1'
+                },
+                {
+                    id: '5', name: 'Counterspell', manaCost: '{U}{U}', type: 'Instant',
+                    rarity: 'Common', text: 'Counter target spell.',
+                    price: 2.50, colors: ['Blue'], cmc: 2, setName: 'Alpha', artist: 'Mark Poole'
+                },
+                {
+                    id: '6', name: 'Sol Ring', manaCost: '{1}', type: 'Artifact',
+                    rarity: 'Uncommon', text: '{T}: Add {C}{C}.',
+                    price: 1.25, colors: ['Colorless'], cmc: 1, setName: 'Alpha', artist: 'Mark Tedin'
+                }
+            ];
+
+            // Start camera
+            const startCamera = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } 
+                    });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                        videoRef.current.onloadedmetadata = () => setIsScanning(true);
+                    }
+                } catch (err) {
+                    console.error('Camera access failed:', err);
+                }
+            };
+
+            // Stop camera
+            const stopCamera = () => {
+                if (videoRef.current && videoRef.current.srcObject) {
+                    const tracks = videoRef.current.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                    videoRef.current.srcObject = null;
+                }
+                setIsScanning(false);
+            };
+
+            // AI Recognition simulation
+            const performAIRecognition = async () => {
+                setIsLoading(true);
+                setRecognizedCard(null);
+
+                // Simulate AI processing stages
+                for (let i = 0; i <= 100; i += 25) {
+                    setAiProgress(i);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                // Select random card for demo
+                const randomCard = cardDatabase[Math.floor(Math.random() * cardDatabase.length)];
+                const confidence = Math.floor(Math.random() * 15) + 85;
+
+                setRecognizedCard({
+                    ...randomCard,
+                    confidence,
+                    method: '🧠 Revolutionary AI',
+                    processingTime: '2.1s',
+                    timestamp: new Date().toISOString()
+                });
+
+                setIsLoading(false);
+                setAiProgress(0);
+            };
+
+            // File upload handler
+            const handleFileUpload = async (event) => {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    setIsLoading(true);
+                    
+                    // Simulate processing
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    
+                    const randomCard = cardDatabase[Math.floor(Math.random() * cardDatabase.length)];
+                    setRecognizedCard({
+                        ...randomCard,
+                        confidence: Math.floor(Math.random() * 15) + 85,
+                        method: '🧠 AI File Analysis',
+                        processingTime: '1.8s',
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    setIsLoading(false);
+                }
+            };
+
+            // Search cards
+            const searchCards = (query) => {
+                if (!query.trim()) {
+                    setSearchResults([]);
+                    return;
+                }
+                
+                const results = cardDatabase.filter(card =>
+                    card.name.toLowerCase().includes(query.toLowerCase()) ||
+                    card.type.toLowerCase().includes(query.toLowerCase()) ||
+                    card.text.toLowerCase().includes(query.toLowerCase())
+                );
+                
+                setSearchResults(results);
+            };
+
+            // Add to collection
+            const addToCollection = (card) => {
+                const existing = collection.find(c => c.id === card.id);
+                if (existing) {
+                    setCollection(collection.map(c => 
+                        c.id === card.id ? {...c, quantity: c.quantity + 1} : c
+                    ));
+                } else {
+                    setCollection([...collection, {...card, quantity: 1}]);
+                }
+            };
+
+            // Remove from collection
+            const removeFromCollection = (cardId) => {
+                setCollection(collection.filter(c => c.id !== cardId));
+            };
+
+            // Utility functions
+            const formatPrice = (price) => {
+                if (price >= 1000) return `$${(price/1000).toFixed(1)}k`;
+                if (price >= 100) return `$${price.toFixed(0)}`;
+                return `$${price.toFixed(2)}`;
+            };
+
+            const getRarityColor = (rarity) => {
+                switch(rarity?.toLowerCase()) {
+                    case 'common': return 'text-gray-400';
+                    case 'uncommon': return 'text-blue-400';
+                    case 'rare': return 'text-yellow-400';
+                    case 'mythic rare': return 'text-red-400';
+                    default: return 'text-gray-400';
+                }
+            };
+
+            // Search debouncing
+            useEffect(() => {
+                const timeoutId = setTimeout(() => searchCards(searchQuery), 300);
+                return () => clearTimeout(timeoutId);
+            }, [searchQuery]);
+
+            const collectionValue = collection.reduce((sum, card) => sum + (card.price * card.quantity), 0);
+            const totalCards = collection.reduce((sum, card) => sum + card.quantity, 0);
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
+                    {/* Header */}
+                    <div className="bg-black/40 backdrop-blur-lg border-b border-white/20 sticky top-0 z-50">
+                        <div className="max-w-7xl mx-auto px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                        <Eye className="icon-lg text-white" />
+                                    </div>
+                                    <div>
+                                        <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+                                            MTG Scanner Pro
+                                        </h1>
+                                        <p className="text-sm text-gray-300">🧠 Revolutionary AI Recognition</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm text-gray-400">Collection</div>
+                                    <div className="text-xl font-bold text-blue-400">{totalCards} cards</div>
+                                    <div className="text-lg font-bold text-green-400">{formatPrice(collectionValue)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="max-w-7xl mx-auto px-4 py-6">
+                        <div className="flex gap-2 bg-black/30 rounded-2xl p-2 backdrop-blur-lg">
+                            {[
+                                { id: 'scanner', label: 'AI Scanner', icon: Camera },
+                                { id: 'search', label: 'Search', icon: Search },
+                                { id: 'collection', label: 'Collection', icon: BookOpen }
+                            ].map(tab => {
+                                const Icon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                                            activeTab === tab.id 
+                                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
+                                                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                                        }`}
+                                    >
+                                        <Icon className="icon" />
+                                        <span className="font-semibold">{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto px-4 pb-8">
+                        {/* Scanner Tab */}
+                        {activeTab === 'scanner' && (
+                            <div className="space-y-8">
+                                <div className="bg-black/30 rounded-2xl p-6 backdrop-blur-lg">
+                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                        <Camera className="icon-lg text-blue-400" />
+                                        🧠 Revolutionary AI Scanner
+                                        {isLoading && (
+                                            <div className="flex items-center gap-2">
+                                                <Loader className="icon animate-spin text-cyan-400" />
+                                                <span className="text-cyan-400">AI Processing {aiProgress}%</span>
+                                            </div>
+                                        )}
+                                    </h2>
+                                    
+                                    <div className="grid lg:grid-cols-2 gap-8">
+                                        <div className="space-y-4">
+                                            {/* Video Display */}
+                                            <div className="bg-black rounded-xl overflow-hidden border-2 border-purple-500/30 relative">
+                                                <video 
+                                                    ref={videoRef} 
+                                                    autoPlay 
+                                                    playsInline 
+                                                    muted
+                                                    className="w-full h-80 object-cover"
+                                                    style={{ display: isScanning ? 'block' : 'none' }}
+                                                />
+                                                {!isScanning && (
+                                                    <div className="w-full h-80 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                                                        <div className="text-center">
+                                                            <Camera className="w-16 h-16 text-purple-400 mx-auto mb-4 animate-bounce" />
+                                                            <p className="text-purple-400 text-xl font-bold">🧠 AI Ready</p>
+                                                            <p className="text-gray-400">Click to start camera</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Processing Overlay */}
+                                                {isLoading && (
+                                                    <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
+                                                        <div className="text-center">
+                                                            <div className="w-16 h-16 border-4 border-cyan-200 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4"></div>
+                                                            <p className="text-cyan-400 text-xl font-bold">🧠 AI Processing</p>
+                                                            <p className="text-white">{aiProgress}% Complete</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            
+                                            {/* Controls */}
+                                            <div className="space-y-3">
+                                                <div className="flex gap-3">
+                                                    {!isScanning ? (
+                                                        <button 
+                                                            onClick={startCamera}
+                                                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition-colors text-lg font-bold"
+                                                        >
+                                                            <Camera className="icon-lg" />
+                                                            🚀 Start Camera
+                                                        </button>
+                                                    ) : (
+                                                        <>
+                                                            <button 
+                                                                onClick={performAIRecognition}
+                                                                disabled={isLoading}
+                                                                className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition-colors text-lg font-bold"
+                                                            >
+                                                                {isLoading ? <Loader className="icon-lg animate-spin" /> : <Zap className="icon-lg" />}
+                                                                {isLoading ? 'AI Analyzing...' : '⚡ Scan Card'}
+                                                            </button>
+                                                            <button 
+                                                                onClick={stopCamera}
+                                                                className="px-4 py-4 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors"
+                                                            >
+                                                                Stop
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                
+                                                {/* File Upload */}
+                                                <div>
+                                                    <input
+                                                        ref={fileInputRef}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleFileUpload}
+                                                        className="hidden"
+                                                    />
+                                                    <button 
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        disabled={isLoading}
+                                                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-600 disabled:to-gray-600 text-white px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition-colors text-lg font-bold"
+                                                    >
+                                                        <Upload className="icon-lg" />
+                                                        📁 Upload Image
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Results */}
+                                        <div>
+                                            {recognizedCard && !recognizedCard.error ? (
+                                                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700/50">
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div>
+                                                            <h3 className="text-2xl font-bold text-white mb-2">{recognizedCard.name}</h3>
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                <span className="text-blue-400 font-mono bg-blue-400/10 px-2 py-1 rounded">{recognizedCard.manaCost}</span>
+                                                                <span className={`${getRarityColor(recognizedCard.rarity)} font-bold`}>{recognizedCard.rarity}</span>
+                                                            </div>
+                                                            <p className="text-gray-400">{recognizedCard.type}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-3xl font-bold text-green-400">{formatPrice(recognizedCard.price)}</div>
+                                                            <div className="text-sm text-cyan-400">{recognizedCard.confidence}% confidence</div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="bg-gray-900/50 rounded-lg p-4 mb-4">
+                                                        <p className="text-gray-300">{recognizedCard.text}</p>
+                                                    </div>
+                                                    
+                                                    {recognizedCard.power && recognizedCard.toughness && (
+                                                        <div className="flex items-center gap-2 mb-4">
+                                                            <span className="text-red-400 text-xl">⚔️</span>
+                                                            <span className="text-white font-bold text-xl">
+                                                                {recognizedCard.power}/{recognizedCard.toughness}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <button 
+                                                        onClick={() => addToCollection(recognizedCard)}
+                                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                                                    >
+                                                        <Star className="icon" />
+                                                        Add to Collection
+                                                    </button>
+                                                </div>
+                                            ) : recognizedCard?.error ? (
+                                                <div className="bg-red-900/30 border border-red-500/50 rounded-xl p-8 text-center">
+                                                    <p className="text-red-300 mb-4">{recognizedCard.error}</p>
+                                                    <p className="text-yellow-400">💡 Try better lighting or angle</p>
+                                                </div>
+                                            ) : (
+                                                <div className="bg-gray-800/30 rounded-xl p-8 text-center border-2 border-dashed border-gray-600">
+                                                    <Eye className="w-16 h-16 text-purple-400 mx-auto mb-4 animate-pulse" />
+                                                    <p className="text-purple-400 text-xl font-bold mb-2">🧠 AI Ready</p>
+                                                    <p className="text-gray-400">Start scanning or upload an image</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas ref={canvasRef} className="hidden" />
+                            </div>
+                        )}
+
+                        {/* Search Tab */}
+                        {activeTab === 'search' && (
+                            <div className="bg-black/30 rounded-2xl p-6 backdrop-blur-lg">
+                                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    <Search className="icon-lg text-blue-400" />
+                                    🔍 Card Search
+                                </h2>
+                                
+                                <div className="relative mb-8">
+                                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 icon text-gray-400" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search cards..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full pl-12 pr-4 py-4 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-purple-500 focus:outline-none"
+                                    />
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    {searchQuery === '' ? (
+                                        <div className="text-center py-16">
+                                            <Search className="w-16 h-16 text-purple-400 mx-auto mb-4 animate-bounce" />
+                                            <p className="text-purple-400 text-xl font-bold">🔍 Search Magic Cards</p>
+                                            <p className="text-gray-400">Try searching for "Lightning Bolt" or "Jace"</p>
+                                        </div>
+                                    ) : searchResults.length > 0 ? (
+                                        <div className="grid gap-4">
+                                            {searchResults.map(card => (
+                                                <div key={card.id} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div>
+                                                            <h3 className="text-xl font-bold text-white mb-1">{card.name}</h3>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-blue-400 font-mono text-sm bg-blue-400/10 px-2 py-1 rounded">{card.manaCost}</span>
+                                                                <span className={`${getRarityColor(card.rarity)} font-bold text-sm`}>{card.rarity}</span>
+                                                            </div>
+                                                            <p className="text-gray-400 text-sm">{card.type}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-xl font-bold text-green-400">{formatPrice(card.price)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
+                                                        <p className="text-gray-300 text-sm">{card.text}</p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => addToCollection(card)}
+                                                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                                                    >
+                                                        <Star className="icon" />
+                                                        Add to Collection
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-16">
+                                            <Search className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                                            <p className="text-gray-400 text-lg">No cards found for "{searchQuery}"</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Collection Tab */}
+                        {activeTab === 'collection' && (
+                            <div className="bg-black/30 rounded-2xl p-6 backdrop-blur-lg">
+                                <div className="flex justify-between items-center mb-8">
+                                    <h2 className="text-2xl font-bold flex items-center gap-3">
+                                        <BookOpen className="icon-lg text-blue-400" />
+                                        📚 Your Collection
+                                    </h2>
+                                    <div className="text-right">
+                                        <div className="text-3xl font-bold text-green-400">{formatPrice(collectionValue)}</div>
+                                        <div className="text-gray-400">Total Value</div>
+                                    </div>
+                                </div>
+                                
+                                {collection.length > 0 ? (
+                                    <div className="grid gap-4">
+                                        {collection.map(card => (
+                                            <div key={`${card.id}-${card.quantity}`} className="bg-gray-800/50 rounded-xl p-4 border border-gray-700/50">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <div>
+                                                        <h3 className="text-xl font-bold text-white mb-1">{card.name}</h3>
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-blue-400 font-mono text-sm bg-blue-400/10 px-2 py-1 rounded">{card.manaCost}</span>
+                                                            <span className={`${getRarityColor(card.rarity)} font-bold text-sm`}>{card.rarity}</span>
+                                                            <span className="text-gray-300 bg-gray-700/30 px-2 py-1 rounded text-sm">Qty: {card.quantity}</span>
+                                                        </div>
+                                                        <p className="text-gray-400 text-sm">{card.type}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <div className="text-xl font-bold text-green-400">{formatPrice(card.price * card.quantity)}</div>
+                                                        <div className="text-sm text-gray-400">{formatPrice(card.price)} each</div>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-gray-900/50 rounded-lg p-3 mb-3">
+                                                    <p className="text-gray-300 text-sm">{card.text}</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => addToCollection(card)}
+                                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm"
+                                                    >
+                                                        ➕ Add Another
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => removeFromCollection(card.id)}
+                                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm"
+                                                    >
+                                                        🗑️ Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-16">
+                                        <BookOpen className="w-16 h-16 text-purple-400 mx-auto mb-4 animate-bounce" />
+                                        <p className="text-purple-400 text-xl font-bold mb-4">📚 Start Your Collection</p>
+                                        <p className="text-gray-400 mb-8">Scan or search for cards to build your collection</p>
+                                        <div className="flex gap-4 justify-center">
+                                            <button 
+                                                onClick={() => setActiveTab('scanner')}
+                                                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-colors font-bold"
+                                            >
+                                                <Camera className="icon" />
+                                                Start Scanning
+                                            </button>
+                                            <button 
+                                                onClick={() => setActiveTab('search')}
+                                                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-xl flex items-center gap-2 transition-colors font-bold"
+                                            >
+                                                <Search className="icon" />
+                                                Search Cards
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // Initialize App
+        ReactDOM.render(React.createElement(MTGScanner), document.getElementById('root'));
+    </script>
+</body>
+</html>
