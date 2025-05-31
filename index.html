@@ -259,20 +259,44 @@
                     onProgress?.({ stage: 'preprocessing', progress: 10, detail: 'Enhancing image quality...' });
                     const enhancedImage = await this.enhanceImageForOCR(imageData);
 
-                    // Step 2: Perform OCR with multiple passes
-                    onProgress?.({ stage: 'ocr', progress: 30, detail: 'Extracting text with OCR...' });
+                    // Step 2: Perform OCR with focus on bottom area (set info)
+                    onProgress?.({ stage: 'ocr', progress: 30, detail: 'Extracting set code and collector number...' });
                     const ocrResult = await this.performMultiPassOCR(enhancedImage);
 
-                    // Step 3: Extract card name candidates
-                    onProgress?.({ stage: 'extraction', progress: 60, detail: 'Extracting card name candidates...' });
+                    // Step 3: PRIORITY - Extract set code + collector number
+                    onProgress?.({ stage: 'set_extraction', progress: 50, detail: 'Looking for set code and collector number...' });
+                    const setInfo = this.extractSetAndCollectorNumber(ocrResult);
+
+                    if (setInfo.setCode && setInfo.collectorNumber) {
+                        // Step 4A: Use set + collector number (MOST RELIABLE)
+                        onProgress?.({ stage: 'set_lookup', progress: 80, detail: `Looking up ${setInfo.setCode} #${setInfo.collectorNumber}...` });
+                        const cardData = await this.fetchCardBySetAndNumber(setInfo.setCode, setInfo.collectorNumber);
+                        
+                        const processingTime = Date.now() - startTime;
+                        console.log(`✅ Recognition by SET+NUMBER: ${cardData.name} (${setInfo.setCode} #${setInfo.collectorNumber}, ${processingTime}ms)`);
+
+                        return {
+                            ...cardData,
+                            confidence: 98, // Very high confidence for set+number match
+                            processingTime,
+                            ocrText: ocrResult.text,
+                            matchedText: `${setInfo.setCode} ${setInfo.collectorNumber}`,
+                            method: 'SET_AND_COLLECTOR_NUMBER',
+                            setCode: setInfo.setCode,
+                            collectorNumber: setInfo.collectorNumber,
+                            candidates: [`Set: ${setInfo.setCode}`, `Number: ${setInfo.collectorNumber}`]
+                        };
+                    }
+
+                    // Step 4B: Fallback to card name recognition
+                    onProgress?.({ stage: 'name_extraction', progress: 60, detail: 'Extracting card name as fallback...' });
                     const candidates = this.extractCardNameCandidates(ocrResult);
 
-                    // Step 4: Find best match using fuzzy search
-                    onProgress?.({ stage: 'matching', progress: 80, detail: 'Finding best card match...' });
+                    onProgress?.({ stage: 'name_matching', progress: 80, detail: 'Finding best card match by name...' });
                     const bestMatch = await this.findBestCardMatch(candidates);
 
                     if (!bestMatch) {
-                        throw new Error('No card match found. Try better lighting or remove from sleeve.');
+                        throw new Error('No card match found. Ensure set code/number or card name is visible.');
                     }
 
                     // Step 5: Get complete card data
@@ -281,7 +305,7 @@
 
                     const processingTime = Date.now() - startTime;
                     
-                    console.log(`✅ Recognition complete: ${bestMatch.name} (${bestMatch.confidence}% confidence, ${processingTime}ms)`);
+                    console.log(`✅ Recognition by NAME: ${bestMatch.name} (${bestMatch.confidence}% confidence, ${processingTime}ms)`);
 
                     return {
                         ...cardData,
@@ -289,6 +313,7 @@
                         processingTime,
                         ocrText: ocrResult.text,
                         matchedText: bestMatch.matchedText,
+                        method: 'CARD_NAME_FUZZY_MATCH',
                         candidates: candidates.slice(0, 5)
                     };
 
