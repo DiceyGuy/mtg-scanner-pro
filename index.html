@@ -434,7 +434,7 @@
                     { name: "Ragavan, Nimble Pilferer", variations: ["Ragavan", "Ragavan, Nimble Pilferer"] },
                     { name: "Teferi, Time Raveler", variations: ["Teferi", "Teferi, Time Raveler", "T3feri"] },
                     { name: "Oko, Thief of Crowns", variations: ["Oko", "Oko, Thief of Crowns"] },
-                    { name: "Uro, Titan of Nature's Wrath", variations: ["Uro", "Uro, Titan"] },
+                    { name: "Uro, Titan of Nature's Wrath", variations: ["Uro", "Uro, Titan"] }
                 ];
 
                 popularCards.forEach(card => {
@@ -443,6 +443,8 @@
                         this.cardDatabase.set(variation.toLowerCase(), card.name);
                     });
                 });
+
+                console.log(`📚 Loaded ${this.cardDatabase.size} card variations`);
             }
 
             setupFuzzySearch() {
@@ -454,6 +456,7 @@
                     includeScore: true,
                     findAllMatches: true
                 });
+                console.log(`🔍 Fuzzy search ready with ${cardNames.length} cards`);
             }
 
             async recognizeCard(imageData, cardId) {
@@ -801,19 +804,19 @@
 
             transformCardData(cardData) {
                 return {
-                    id: cardData.id,
-                    name: cardData.name,
+                    id: cardData.id || `temp_${Date.now()}`,
+                    name: cardData.name || 'Unknown Card',
                     mana_cost: cardData.mana_cost || '',
-                    type_line: cardData.type_line || '',
+                    type_line: cardData.type_line || 'Unknown Type',
                     oracle_text: cardData.oracle_text || '',
-                    rarity: cardData.rarity || 'common',
-                    set_name: cardData.set_name || '',
+                    rarity: cardData.rarity ? cardData.rarity.charAt(0).toUpperCase() + cardData.rarity.slice(1) : 'Common',
+                    set_name: cardData.set_name || 'Unknown Set',
                     set_code: cardData.set ? cardData.set.toUpperCase() : '',
                     collector_number: cardData.collector_number || '',
-                    artist: cardData.artist || '',
+                    artist: cardData.artist || 'Unknown Artist',
                     price_usd: parseFloat(cardData.prices?.usd || '0'),
-                    image_url: cardData.image_uris?.normal || cardData.image_uris?.large,
-                    scryfall_uri: cardData.scryfall_uri,
+                    image_url: cardData.image_uris?.normal || cardData.image_uris?.large || null,
+                    scryfall_uri: cardData.scryfall_uri || null,
                     power: cardData.power || null,
                     toughness: cardData.toughness || null
                 };
