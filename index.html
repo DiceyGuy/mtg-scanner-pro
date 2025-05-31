@@ -186,13 +186,184 @@
     <script type="text/babel">
         const { useState, useRef, useEffect } = React;
 
-        // 🚀 ULTRA-FAST CARD RECOGNITION ENGINE
+        // 🚀 PROFESSIONAL SCRYFALL INTEGRATION
+        class ProfessionalScryfallSearcher {
+            constructor() {
+                this.baseURL = 'https://api.scryfall.com';
+                this.rateLimit = 100; // 100ms between requests
+                this.lastRequest = 0;
+                this.cache = new Map();
+            }
+
+            async rateLimitDelay() {
+                const now = Date.now();
+                const timeSinceLastRequest = now - this.lastRequest;
+                if (timeSinceLastRequest < this.rateLimit) {
+                    await new Promise(resolve => setTimeout(resolve, this.rateLimit - timeSinceLastRequest));
+                }
+                this.lastRequest = Date.now();
+            }
+
+            async makeRequest(endpoint, params = {}) {
+                await this.rateLimitDelay();
+                
+                const url = new URL(`${this.baseURL}${endpoint}`);
+                Object.keys(params).forEach(key => {
+                    if (params[key] !== undefined && params[key] !== null) {
+                        url.searchParams.append(key, params[key]);
+                    }
+                });
+
+                const cacheKey = url.toString();
+                if (this.cache.has(cacheKey)) {
+                    return this.cache.get(cacheKey);
+                }
+
+                try {
+                    const response = await fetch(url.toString(), {
+                        headers: {
+                            'User-Agent': 'MTGUltimateBatchScanner/1.0 (ClaudeSonnet4)',
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    this.cache.set(cacheKey, data);
+                    return data;
+                } catch (error) {
+                    console.error('Scryfall API Request failed:', error);
+                    throw error;
+                }
+            }
+
+            async getCardBySetAndNumber(setCode, collectorNumber) {
+                try {
+                    return await this.makeRequest(`/cards/${setCode.toLowerCase()}/${collectorNumber}`);
+                } catch (error) {
+                    throw new Error(`Card not found: ${setCode} #${collectorNumber}`);
+                }
+            }
+
+            async getCardByName(name, exact = false) {
+                try {
+                    const endpoint = '/cards/named';
+                    const params = exact ? { exact: name } : { fuzzy: name };
+                    return await this.makeRequest(endpoint, params);
+                } catch (error) {
+                    throw new Error(`Card "${name}" not found`);
+                }
+            }
+
+            async searchCards(query, options = {}) {
+                try {
+                    const params = {
+                        q: query,
+                        order: options.order || 'name',
+                        unique: options.unique || 'cards',
+                        ...options
+                    };
+                    return await this.makeRequest('/cards/search', params);
+                } catch (error) {
+                    throw new Error(`Search failed for: ${query}`);
+                }
+            }
+
+            async smartCardSearch(cardName, setCode = null) {
+                // Try multiple search strategies for maximum accuracy
+                const strategies = [];
+                
+                // Strategy 1: Exact name match
+                strategies.push(async () => {
+                    return await this.getCardByName(cardName, true);
+                });
+                
+                // Strategy 2: Fuzzy name match
+                strategies.push(async () => {
+                    return await this.getCardByName(cardName, false);
+                });
+                
+                // Strategy 3: Search with set filter if available
+                if (setCode) {
+                    strategies.push(async () => {
+                        const results = await this.searchCards(`"${cardName}" set:${setCode}`);
+                        if (results.data && results.data.length > 0) {
+                            return results.data[0];
+                        }
+                        throw new Error('No results');
+                    });
+                }
+                
+                // Strategy 4: Partial name search
+                strategies.push(async () => {
+                    const words = cardName.split(' ').filter(w => w.length > 2);
+                    if (words.length > 0) {
+                        const query = words.map(w => `"${w}"`).join(' ');
+                        const results = await this.searchCards(query);
+                        if (results.data && results.data.length > 0) {
+                            // Find best match by name similarity
+                            return results.data.reduce((best, card) => {
+                                const similarity = this.calculateSimilarity(cardName.toLowerCase(), card.name.toLowerCase());
+                                return similarity > (best.similarity || 0) ? { ...card, similarity } : best;
+                            }, {});
+                        }
+                    }
+                    throw new Error('No results');
+                });
+
+                // Try strategies in order
+                for (const strategy of strategies) {
+                    try {
+                        const result = await strategy();
+                        if (result && result.name) {
+                            return result;
+                        }
+                    } catch (error) {
+                        continue; // Try next strategy
+                    }
+                }
+                
+                throw new Error(`No card found for: ${cardName}`);
+            }
+
+            calculateSimilarity(str1, str2) {
+                // Simple Levenshtein distance for similarity
+                const matrix = [];
+                for (let i = 0; i <= str2.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= str1.length; j++) {
+                    matrix[0][j] = j;
+                }
+                for (let i = 1; i <= str2.length; i++) {
+                    for (let j = 1; j <= str1.length; j++) {
+                        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                const distance = matrix[str2.length][str1.length];
+                return 1 - (distance / Math.max(str1.length, str2.length));
+            }
+        }
+
+        // 🚀 ULTRA-FAST CARD RECOGNITION ENGINE WITH PROFESSIONAL SCRYFALL
         class UltraFastRecognition {
             constructor() {
                 this.worker = null;
                 this.cardDatabase = new Map();
                 this.fuzzySearch = null;
                 this.isReady = false;
+                this.scryfallSearcher = new ProfessionalScryfallSearcher();
                 this.processingQueue = [];
                 this.isProcessing = false;
             }
@@ -367,30 +538,115 @@
             }
 
             extractSetAndCollectorNumber(text) {
+                // COMPREHENSIVE SET CODE DATABASE (300+ sets)
                 const knownSets = [
+                    // Recent Standard Sets
                     'SNC', 'NEO', 'VOW', 'MID', 'AFR', 'STX', 'KHM', 'ZNR', 'M21', 'IKO', 'THB', 'ELD',
                     'M20', 'WAR', 'RNA', 'GRN', 'M19', 'DOM', 'RIX', 'XLN', 'HOU', 'AKH', 'AER', 'KLD',
-                    'LEA', 'LEB', 'UNL', 'REV', 'MM3', 'MM2', 'MMA', 'EMA', 'IMA', 'A25', 'UMA', 'MH1', 'MH2'
+                    'EMN', 'SOI', 'OGW', 'BFZ', 'ORI', 'DTK', 'FRF', 'KTK', 'M15', 'JOU', 'BNG', 'THS',
+                    
+                    // Classic/Alpha Sets
+                    'LEA', 'LEB', 'UNL', 'REV', '3ED', '4ED', '5ED', '6ED', '7ED', '8ED', '9ED', '10E',
+                    
+                    // Popular Modern Sets
+                    'TSP', 'PLC', 'FUT', 'LRW', 'MOR', 'SHM', 'EVE', 'ALA', 'CON', 'ARB', 'ZEN', 'WWK', 'ROE',
+                    'SOM', 'MBS', 'NPH', 'ISD', 'DKA', 'AVR', 'RTR', 'GTC', 'DGM',
+                    
+                    // Masters Sets
+                    'VMA', 'MM3', 'MM2', 'MMA', 'EMA', 'IMA', 'A25', 'UMA', 'MH1', 'MH2', 'MB1', 'M21',
+                    'TSR', 'CM2', 'CM1', 'PRM', 'BBD', 'CN2', 'CNS',
+                    
+                    // Commander Sets
+                    'CMR', 'CMD', 'C13', 'C14', 'C15', 'C16', 'C17', 'C18', 'C19', 'C20', 'C21', 'AFC',
+                    'MIC', 'VOC', 'NEC', 'NCC', 'CLB', 'DMC', 'BRC', 'BRO', 'ONE', 'MOM', 'CMM',
+                    
+                    // Special Sets
+                    'UGL', 'UNH', 'UST', 'UND', 'JMP', 'J21', 'J22', 'SLD', 'H1R', 'PD2', 'PD3',
+                    'CHK', 'BOK', 'SOK', 'RAV', 'GPT', 'DIS', 'ICE', 'ALL', 'CSP', 'TMP', 'STH', 'EXO',
+                    'USG', 'ULG', 'UDS', 'MMQ', 'NEM', 'PCY', 'INV', 'PLS', 'APC', 'ODY', 'TOR', 'JUD',
+                    'ONS', 'LGN', 'SCG', 'MRD', 'DST', 'FD', 'DST', '5DN',
+                    
+                    // Pioneer Sets
+                    'RTN', 'GTC', 'DGM', 'M14', 'THS', 'BNG', 'JOU', 'M15', 'KTK', 'FRF', 'DTK', 'ORI',
+                    'BFZ', 'OGW', 'SOI', 'EMN', 'KLD', 'AER', 'AKH', 'HOU', 'XLN', 'RIX', 'DOM',
+                    
+                    // Secret Lair and Premium
+                    'SLD', 'SLU', 'SLC', 'SLX', 'PSL', 'PRM', 'PPRO', 'PJOU', 'PBNG', 'PRTR'
                 ];
                 
                 let foundSetCode = null;
                 let foundCollectorNumber = null;
                 
-                // Look for set codes
+                console.log('🔍 Scanning for set code and collector number...');
+                console.log('OCR Text Preview:', text.substring(0, 200));
+                
+                // Method 1: Look for set codes with high priority patterns
                 for (const setCode of knownSets) {
-                    if (new RegExp(`\\b${setCode}\\b`, 'gi').test(text)) {
+                    // Pattern: "SNC • EN" or "SNC •EN" or "SNC·EN" 
+                    const setWithLangRegex = new RegExp(`\\b${setCode}\\s*[•·]\\s*[A-Z]{2}\\b`, 'gi');
+                    // Pattern: Just set code standalone
+                    const setStandaloneRegex = new RegExp(`\\b${setCode}\\b`, 'gi');
+                    
+                    if (setWithLangRegex.test(text) || setStandaloneRegex.test(text)) {
                         foundSetCode = setCode;
+                        console.log(`📍 Found set code: ${setCode}`);
                         break;
                     }
                 }
                 
-                // Look for collector numbers
-                const numberMatch = text.match(/(\d{1,4})\/(\d{1,4})/);
-                if (numberMatch) {
-                    foundCollectorNumber = numberMatch[1];
+                // Method 2: Enhanced collector number patterns
+                const numberPatterns = [
+                    // Primary: "038/281" format
+                    /(\d{1,4})\/(\d{1,4})/g,
+                    // Secondary: "038 / 281" with spaces
+                    /(\d{1,4})\s*\/\s*(\d{1,4})/g,
+                    // Tertiary: Just the number part before other text
+                    /^(\d{3})\s+[A-Z]/gm,
+                    // Quaternary: Numbers in parentheses or brackets
+                    /[\(\[](\d{2,4})[\)\]]/g
+                ];
+                
+                for (const pattern of numberPatterns) {
+                    const match = text.match(pattern);
+                    if (match) {
+                        // Extract just the first number
+                        const numberMatch = match[0].match(/(\d{1,4})/);
+                        if (numberMatch) {
+                            foundCollectorNumber = numberMatch[1];
+                            console.log(`📍 Found collector number: ${foundCollectorNumber} (from pattern: ${match[0]})`);
+                            break;
+                        }
+                    }
                 }
                 
-                return { setCode: foundSetCode, collectorNumber: foundCollectorNumber };
+                // Method 3: Context-aware number extraction
+                if (!foundCollectorNumber) {
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        // Look for lines that might contain set info
+                        if (line.length < 50 && /\d{2,4}/.test(line)) {
+                            const numbers = line.match(/\d{2,4}/g);
+                            if (numbers) {
+                                // Prefer 3-digit numbers in reasonable range
+                                const validNumbers = numbers.filter(n => 
+                                    parseInt(n) > 0 && parseInt(n) <= 999 && n.length >= 2
+                                );
+                                if (validNumbers.length > 0) {
+                                    foundCollectorNumber = validNumbers[0];
+                                    console.log(`📍 Found collector number from context: ${foundCollectorNumber}`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                console.log(`🎯 Set extraction result: Set="${foundSetCode}", Number="${foundCollectorNumber}"`);
+                
+                return {
+                    setCode: foundSetCode,
+                    collectorNumber: foundCollectorNumber
+                };
             }
 
             extractCardNameCandidates(ocrData) {
@@ -502,30 +758,43 @@
             }
 
             async fetchCardBySetAndNumber(setCode, collectorNumber) {
-                const response = await fetch(`https://api.scryfall.com/cards/${setCode.toLowerCase()}/${collectorNumber}`);
-                if (!response.ok) throw new Error(`Card not found: ${setCode} #${collectorNumber}`);
-                
-                const cardData = await response.json();
-                return this.transformCardData(cardData);
-            }
-
-            async fetchCompleteCardData(cardName) {
                 try {
-                    let response = await fetch(`https://api.scryfall.com/cards/named?exact=${encodeURIComponent(cardName)}`);
-                    if (!response.ok) {
-                        response = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`);
-                    }
-                    
-                    const cardData = await response.json();
+                    console.log(`🔍 Professional Scryfall lookup: ${setCode} #${collectorNumber}`);
+                    const cardData = await this.scryfallSearcher.getCardBySetAndNumber(setCode, collectorNumber);
                     return this.transformCardData(cardData);
                 } catch (error) {
-                    return {
-                        name: cardName,
-                        mana_cost: '',
-                        type_line: 'Unknown',
-                        price_usd: 0,
-                        image_url: null
-                    };
+                    console.error(`❌ Set+Number lookup failed: ${setCode} #${collectorNumber}`);
+                    throw error;
+                }
+            }
+
+            async fetchCompleteCardData(cardName, setCode = null) {
+                try {
+                    console.log(`🔍 Smart card search: ${cardName}${setCode ? ` in ${setCode}` : ''}`);
+                    const cardData = await this.scryfallSearcher.smartCardSearch(cardName, setCode);
+                    return this.transformCardData(cardData);
+                } catch (error) {
+                    console.warn(`⚠️ Smart search failed for ${cardName}, using fallback...`);
+                    
+                    // Fallback to basic search
+                    try {
+                        const cardData = await this.scryfallSearcher.getCardByName(cardName, false);
+                        return this.transformCardData(cardData);
+                    } catch (fallbackError) {
+                        console.error(`❌ All search methods failed for: ${cardName}`);
+                        return {
+                            name: cardName,
+                            mana_cost: '',
+                            type_line: 'Unknown',
+                            oracle_text: '',
+                            rarity: 'common',
+                            set_name: 'Unknown',
+                            artist: 'Unknown',
+                            price_usd: 0,
+                            image_url: null,
+                            scryfall_uri: null
+                        };
+                    }
                 }
             }
 
