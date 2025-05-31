@@ -1582,12 +1582,51 @@
                                                             className="card-link"
                                                         >
                                                             🔗 View on Scryfall
-                                                        
-                        error: 'Card recognition failed - try better lighting or angle',
-                        processingTime: Date.now() - startTime
-                    };
-                    
-                } catch (error) {
-                    return {
-                        cardId,
-                        success: false,
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div>
+                                                    <div className="card-status">
+                                                        <div className="status-indicator error">❌</div>
+                                                        <div className="card-name">Recognition Failed</div>
+                                                    </div>
+                                                    
+                                                    <div className="card-details" style={{ color: '#ffaaaa' }}>
+                                                        {result.error || 'Unknown error occurred'}
+                                                    </div>
+                                                    
+                                                    <div className="card-meta">
+                                                        <span>Scan #{result.cardId}</span>
+                                                        <span>{formatTime(result.processingTime)}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="glass" style={{ padding: '20px', textAlign: 'center', marginTop: '20px' }}>
+                        <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '8px' }}>
+                            🚀 ULTIMATE MTG SCANNER • PROFESSIONAL GRADE
+                        </div>
+                        <div style={{ fontSize: '0.9rem', color: '#aaa', marginBottom: '8px' }}>
+                            Ultra-Fast Recognition • Set+Number Priority • Professional Scryfall API • CSV Export
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#4CAF50' }}>
+                            Recognition Hierarchy: 🎯 Set+Collector → 🔤 Card Name → 📊 Bulk Processing
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the application
+        ReactDOM.render(<UltimateMTGScanner />, document.getElementById('root'));
+    </script>
+</body>
+</html>
