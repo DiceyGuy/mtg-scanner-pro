@@ -375,9 +375,9 @@
                     onProgress?.({ step: 1, total: 3, message: 'Initializing Tesseract OCR...' });
                     
                     this.worker = await Tesseract.createWorker('eng', 1, {
-                        logger: m => {
-                            if (m.status === 'recognizing text') {
-                                onProgress?.({ step: 1, total: 3, message: `OCR: ${Math.round(m.progress * 100)}%` });
+                        logger: (m) => {
+                            if (m.status === 'recognizing text' && onProgress) {
+                                onProgress({ step: 1, total: 3, message: `OCR: ${Math.round(m.progress * 100)}%` });
                             }
                         }
                     });
@@ -400,6 +400,7 @@
                     console.log('✅ Ultra-Fast Recognition Ready!');
                     
                 } catch (error) {
+                    console.error('❌ Recognition engine initialization failed:', error);
                     throw error;
                 }
             }
@@ -819,8 +820,13 @@
             }
 
             async cleanup() {
-                if (this.worker) {
-                    await this.worker.terminate();
+                try {
+                    if (this.worker) {
+                        await this.worker.terminate();
+                        this.worker = null;
+                    }
+                } catch (error) {
+                    console.warn('Error during cleanup:', error);
                 }
             }
         }
@@ -855,6 +861,7 @@
                         setRecognitionEngine(engine);
                         setInitError(null);
                     } catch (error) {
+                        console.error('❌ Recognition engine initialization failed:', error);
                         setInitError(error.message);
                     } finally {
                         setIsInitializing(false);
@@ -864,29 +871,36 @@
                 
                 return () => {
                     if (recognitionEngine) {
-                        recognitionEngine.cleanup();
+                        recognitionEngine.cleanup().catch(console.error);
                     }
                 };
-            }, []);
+            }, []); // Empty dependency array is correct here
 
             // Get available cameras
             useEffect(() => {
                 const getCameras = async () => {
                     try {
+                        // Request permissions first
+                        await navigator.mediaDevices.getUserMedia({ video: true });
+                        
                         const devices = await navigator.mediaDevices.enumerateDevices();
                         const videoDevices = devices.filter(device => device.kind === 'videoinput');
                         setCameras(videoDevices);
                         
                         if (videoDevices.length > 0) {
                             // Prefer back camera on mobile, first camera on desktop
-                            const backCamera = videoDevices.find(device => 
-                                device.label.toLowerCase().includes('back') || 
-                                device.label.toLowerCase().includes('environment')
-                            );
+                            const backCamera = videoDevices.find(device => {
+                                const label = device.label.toLowerCase();
+                                return label.includes('back') || 
+                                       label.includes('environment') ||
+                                       label.includes('rear');
+                            });
                             setSelectedCameraId(backCamera?.deviceId || videoDevices[0].deviceId);
                         }
                     } catch (error) {
-                        console.error('Error getting cameras:', error);
+                        console.warn('Error getting cameras:', error);
+                        // Set empty camera list if permissions denied
+                        setCameras([]);
                     }
                 };
                 getCameras();
