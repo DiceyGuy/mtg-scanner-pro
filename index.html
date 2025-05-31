@@ -971,6 +971,16 @@
 
             // Auto-scanning mode
             const toggleAutoMode = () => {
+                if (!recognitionEngine) {
+                    alert('Recognition engine not ready yet. Please wait for initialization to complete.');
+                    return;
+                }
+                
+                if (!isScanning) {
+                    alert('Please start the camera first!');
+                    return;
+                }
+                
                 if (isAutoMode) {
                     stopAutoMode();
                 } else {
@@ -979,15 +989,22 @@
             };
 
             const startAutoMode = () => {
-                if (!recognitionEngine || !isScanning) return;
+                if (!recognitionEngine || !isScanning) {
+                    console.warn('Cannot start auto mode: prerequisites not met');
+                    return;
+                }
                 
+                console.log('🚀 Starting auto-scan mode...');
                 setIsAutoMode(true);
+                
                 autoIntervalRef.current = setInterval(() => {
+                    console.log('📸 Auto-capturing frame...');
                     captureAndRecognize();
                 }, 2000); // Scan every 2 seconds
             };
 
             const stopAutoMode = () => {
+                console.log('⏹️ Stopping auto-scan mode...');
                 setIsAutoMode(false);
                 if (autoIntervalRef.current) {
                     clearInterval(autoIntervalRef.current);
@@ -997,11 +1014,22 @@
 
             // Capture and recognize card
             const captureAndRecognize = async () => {
-                if (!recognitionEngine || !videoRef.current) return;
+                if (!recognitionEngine || !videoRef.current) {
+                    console.warn('Cannot capture: missing requirements');
+                    return;
+                }
 
                 try {
+                    console.log('📸 Capturing frame for recognition...');
                     const canvas = canvasRef.current;
                     const video = videoRef.current;
+                    
+                    // Ensure video is ready
+                    if (video.videoWidth === 0 || video.videoHeight === 0) {
+                        console.warn('Video not ready yet');
+                        return;
+                    }
+                    
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     
@@ -1010,6 +1038,8 @@
                     const imageData = canvas.toDataURL('image/png', 0.95);
 
                     const cardId = ++cardIdCounterRef.current;
+                    
+                    console.log(`🔍 Processing card #${cardId}...`);
                     
                     // Add pending result
                     setAutoResults(prev => [{
@@ -1021,6 +1051,8 @@
                     // Process recognition
                     const result = await recognitionEngine.recognizeCard(imageData, cardId);
                     
+                    console.log(`✅ Recognition result for card #${cardId}:`, result);
+                    
                     // Update result
                     setAutoResults(prev => prev.map(item => 
                         item.cardId === cardId ? { ...result, timestamp: item.timestamp } : item
@@ -1028,19 +1060,33 @@
                     
                     if (result.success) {
                         setTotalScanned(prev => prev + 1);
+                        console.log(`🎯 Successfully recognized: ${result.name}`);
+                    } else {
+                        console.warn(`❌ Recognition failed for card #${cardId}:`, result.error);
                     }
                     
                 } catch (error) {
                     console.error('Recognition error:', error);
                     setAutoResults(prev => prev.map(item => 
                         item.cardId === cardIdCounterRef.current ? 
-                        { ...item, status: 'error', error: error.message } : item
+                        { ...item, status: 'error', error: error.message, success: false } : item
                     ));
                 }
             };
 
             // Manual single scan
             const manualScan = async () => {
+                if (!recognitionEngine) {
+                    alert('Recognition engine not ready yet. Please wait for initialization to complete.');
+                    return;
+                }
+                
+                if (!isScanning) {
+                    alert('Please start the camera first!');
+                    return;
+                }
+                
+                console.log('🎯 Manual scan triggered...');
                 await captureAndRecognize();
             };
 
@@ -1235,13 +1281,14 @@
                                                 className={`btn-auto ${isAutoMode ? 'active' : ''}`}
                                                 onClick={toggleAutoMode}
                                                 style={{ flex: 1 }}
+                                                disabled={!recognitionEngine}
                                             >
                                                 {isAutoMode ? '⏹️ Stop Auto-Scan' : '🚀 Start Auto-Scan'}
                                             </button>
                                             <button 
                                                 className="btn-primary"
                                                 onClick={manualScan}
-                                                disabled={isAutoMode}
+                                                disabled={isAutoMode || !recognitionEngine}
                                                 style={{ flex: 1 }}
                                             >
                                                 🎯 Manual Scan
